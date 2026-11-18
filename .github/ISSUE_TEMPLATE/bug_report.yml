@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a conversion bug, a build failure or a voice that sounds different from Sound Canvas VA.
+
+labels: ["bug"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              **Do not attach SCCore.dll or a generated bank.** They contain Roland's software and samples (see the legal notice in the README).
+              Playback bugs that also happen with other banks belong to [spessasynth_core](https://github.com/spessasus/spessasynth_core/issues).
+    - type: checkboxes
+      attributes:
+          label: Duplicated issue check
+          description: Please make sure that this issue has not been reported before.
+          options:
+              - label: I confirm that I have searched the existing issues
+                required: true
+    - type: input
+      id: commit
+      attributes:
+          label: Converter commit
+          description: The commit you built from (`git rev-parse --short HEAD`).
+      validations:
+          required: true
+    - type: input
+      id: dll
+      attributes:
+          label: DLL file
+          description: File name and sha256 of the DLL you converted (`sha256sum input/*.dll`).
+          placeholder: SCCore.dll dbd9a30c...
+      validations:
+          required: true
+    - type: input
+      id: system
+      attributes:
+          label: System
+          description: Operating system and Node.js version.
+          placeholder: Windows 11, Node.js 22
+      validations:
+          required: false
+    - type: textarea
+      id: description
+      attributes:
+          label: Description
+          description: Describe the bug. For a voice that sounds wrong, give its bank MSB / LSB / program and the key and velocity.
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected Behavior
+          description: A concise description of what you expected to happen (how Sound Canvas VA sounds).
+      validations:
+          required: true
+    - type: textarea
+      id: reproduction
+      attributes:
+          label: Reproduction steps
+          description: Steps to reproduce the behavior.
+          placeholder: |
+              1. Build the bank with `node bin/scva2sfe.mjs input/SCCore.dll --out out`
+              2. Load it in SpessaSynth
+              3. Play this MIDI...
+              4. Hear...
+      validations:
+          required: true
+    - type: textarea
+      attributes:
+          label: Additional info
+          description: Build output (for build failures), MIDI files and recordings of Sound Canvas VA and the bank go here. No DLLs or banks.
+      validations:
+          required: false

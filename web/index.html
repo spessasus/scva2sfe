@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Sound Canvas VA to SFe converter</title>
+    <meta name="description" content="Converts SOUND Canvas VA's SCCore.dll into an SFe sound bank, entirely in your browser.">
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="main.js"></script>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Sound Canvas VA to SFe converter</h1>
+        <p class="lead">Turns the voices of Roland's SOUND Canvas VA into an SFe sound bank, as close to the original as
+            the format allows.</p>
+    </header>
+
+    <section class="notice" aria-label="Privacy and requirements">
+        <p><strong>Everything runs in your browser.</strong> The files you pick are never uploaded, stored or shared.
+            Only the solve cache below stays in this browser, and you can clear it.</p>
+        <p>You need your own, legitimate copy of SOUND Canvas VA. This page contains no Roland software or data: the
+            bank is made from the <code>SCCore.dll</code> you pick, and it is for your own use.</p>
+        <p>The banks use SFe 4 features. They play as intended in spessasynth_core 4.4.11 or newer. Older players load
+            them but miss those features.</p>
+    </section>
+
+    <section class="group" aria-labelledby="files_title">
+        <h2 id="files_title">Your files</h2>
+        <div class="file_row" data-file="dll">
+            <div class="file_text">
+                <span class="file_name">SCCore.dll</span>
+                <span class="file_hint">Required. From the SOUND Canvas VA install folder, version 1.1.6 (x64).</span>
+                <span class="file_status" id="dll_status" role="status"></span>
+            </div>
+            <label class="button file_button">Choose<input type="file" id="dll_input" accept=".dll" aria-label="Choose SCCore.dll"></label>
+        </div>
+        <div class="file_row" data-file="scvsc">
+            <div class="file_text">
+                <span class="file_name">SCVSC.drk</span>
+                <span class="file_hint">Optional. Drum key names of the GS kits ("Closed Hi-Hat 2" instead of the tone's
+                    name).</span>
+                <span class="file_status" id="scvsc_status" role="status"></span>
+            </div>
+            <label class="button file_button">Choose<input type="file" id="scvsc_input" accept=".drk" aria-label="Choose SCVSC.drk"></label>
+        </div>
+        <div class="file_row" data-file="gm2">
+            <div class="file_text">
+                <span class="file_name">GM2.drk</span>
+                <span class="file_hint">Optional. Drum key names of the GM2 kits.</span>
+                <span class="file_status" id="gm2_status" role="status"></span>
+            </div>
+            <label class="button file_button">Choose<input type="file" id="gm2_input" accept=".drk" aria-label="Choose GM2.drk"></label>
+        </div>
+        <p class="hint">You can also drop all three files onto the page.</p>
+    </section>
+
+    <section class="group" aria-labelledby="banks_title">
+        <h2 id="banks_title">Banks to write</h2>
+        <div id="outputs"></div>
+        <p class="hint">Ogg Vorbis bank: not offered here, browsers have no Vorbis encoder that writes the same bank as
+            the command line converter. Run it with <code>--vorbis</code> for that one.</p>
+    </section>
+
+    <section class="actions">
+        <button type="button" class="button primary" id="convert" disabled>Convert</button>
+        <button type="button" class="button" id="stop" hidden>Stop</button>
+        <label class="workers">Workers <input type="number" id="workers" min="1" max="32" step="1"></label>
+        <p class="hint" id="convert_hint">Pick SCCore.dll first.</p>
+    </section>
+
+    <section class="group" id="progress_group" aria-labelledby="progress_title" hidden>
+        <h2 id="progress_title">Progress</h2>
+        <ol id="stages"></ol>
+        <p class="error" id="error" role="alert" hidden></p>
+        <details id="log_details">
+            <summary>Converter log</summary>
+            <pre id="log"></pre>
+        </details>
+    </section>
+
+    <section class="group" id="downloads_group" aria-labelledby="downloads_title" hidden>
+        <h2 id="downloads_title">Downloads</h2>
+        <ul id="downloads"></ul>
+        <p class="hint">The same conversion gives the same bytes on every run in one browser. The fits use the
+            browser's Math functions, and Firefox rounds a few of them differently from Node.js in the last bit, so
+            its banks differ slightly from the command line converter's.</p>
+        <p class="hint">The banks contain Roland's samples and tone data from your copy. Keep them for your own use, do
+            not share them.</p>
+    </section>
+
+    <section class="group" aria-labelledby="cache_title">
+        <h2 id="cache_title">Solve cache</h2>
+        <p id="cache_line">Checking…</p>
+        <label class="check"><input type="checkbox" id="use_cache" checked> Use the solve cache</label>
+        <button type="button" class="button" id="clear_cache">Clear cache</button>
+    </section>
+
+    <footer>
+        <p><a href="https://github.com/spessasus/scva2sfe">scva2sfe on GitHub</a>, the converter and its command line
+            version, under the Apache License 2.0.</p>
+        <p>Thanks to <a href="https://github.com/TabulaSonora/spec">Tabula Sonora</a> and
+            <a href="https://github.com/TabulaSonora/NativeTS">NativeTS</a> (BSD 3-Clause), whose work the voice
+            decoding and the engine renderer build on, <a href="https://github.com/spessasus/spessasynth_core">spessasynth_core</a>
+            for the SFe writer and <a href="https://emscripten.org">Emscripten</a>. The full list is in the README.</p>
+        <p>Not affiliated with Roland Corporation. Roland, SOUND Canvas and GS are trademarks of Roland Corporation.</p>
+    </footer>
+</main>
+</body>
+</html>

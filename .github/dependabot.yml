@@ -1,0 +1,18 @@
+version: 2
+updates:
+    # spessasynth_core is a local file: dependency until its SFe 4 release, so Dependabot only looks after the dev
+    # dependencies and the workflow's actions
+    - package-ecosystem: "npm"
+      directory: "/"
+      schedule:
+          interval: "monthly"
+      open-pull-requests-limit: 5
+      allow:
+          - dependency-type: "development"
+      ignore:
+          - dependency-name: "spessasynth_core"
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "monthly"
+      open-pull-requests-limit: 5
