@@ -1,0 +1,81 @@
+# The web converter (web/) on GitHub Pages: builds the bake renderer's WebAssembly with the pinned Emscripten and the
+# site from source, then deploys build/web.
+name: pages
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+env:
+    EMSDK_VERSION: 6.0.13
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  path: scva2sfe
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 26
+
+            - name: Cache the emsdk
+              uses: actions/cache@v4
+              with:
+                  path: emsdk
+                  key: emsdk-${{ env.EMSDK_VERSION }}-${{ runner.os }}
+
+            - name: Install Emscripten ${{ env.EMSDK_VERSION }}
+              run: |
+                  [ -d emsdk ] || git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+                  cd emsdk
+                  ./emsdk install "$EMSDK_VERSION"
+                  ./emsdk activate "$EMSDK_VERSION"
+
+            - name: Install
+              working-directory: scva2sfe
+              run: npm ci
+
+            - name: Build the bake renderer
+              working-directory: scva2sfe
+              env:
+                  SCVA_EMSDK: ${{ github.workspace }}/emsdk
+              run: npm run build:wasm
+
+            - name: Type check
+              working-directory: scva2sfe
+              run: npm run build
+
+            - name: Build the site
+              working-directory: scva2sfe
+              run: npm run build:web
+
+            - uses: actions/configure-pages@v5
+
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: scva2sfe/build/web
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        # only the deploy job may write Pages, the build job runs npm ci on outside code
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@v4

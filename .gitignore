@@ -1,0 +1,30 @@
+# Only the converter is tracked. The reverse engineering workspace, notes, test material and outputs stay local.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/LICENSE.NativeTS
+!/NOTICE.md
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/tsconfig.dist.json
+!/.github/
+!/src/
+!/tools/
+!/web/
+!/bin/
+!/input/
+/input/*
+!/input/README.md
+
+__pycache__/
+
+# the lab stays private: the full engine, the Python converter and its writer CLIs, the lab's checks
+/src/lab/
+/src/engine/
+/src/convert/
+/src/host/
+/src/writer/
+/tools/build-engine.*
+/dist/

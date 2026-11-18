@@ -1,0 +1,19 @@
+### Issues
+
+_Each pull request needs to be related to an issue, mention it here.
+If there isn't one, please open it first._
+
+Fixes #
+
+### Description
+
+_Describe the proposed changes and explain why you made them here._
+
+### Confirmations
+
+- [ ] I read the contributing guide (`.github/CONTRIBUTING.md`).
+- [ ] I agree that the submitted changes become part of scva2sfe under its current or any future license.
+- [ ] Changes are fully implemented.
+- [ ] I confirm that I implemented the changes without any AI agents signing off any commits.
+- [ ] I built a bank with the changes, checked that two conversions write the same bytes and described the audible
+      effect above.
