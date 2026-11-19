@@ -61,7 +61,7 @@ npm run build:dist        # the compiled converter in dist/, with sbr.wasm next 
 ```
 
 `npm run build` type checks everything, the library (`src/lib`, `src/rules`) also against browser APIs alone, so it
-stays free of Node APIs. `.github/workflows/build.yml` runs the same build in GitHub Actions.
+stays free of Node APIs. `.github/workflows/pr-checks.yml` runs the same build in GitHub Actions.
 
 ## Usage
 
