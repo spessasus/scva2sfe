@@ -57,7 +57,7 @@ jobs:
               run: npm run build:dist
 
             # the licenses and the BSD notice travel with the compiled converter
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v7
               with:
                   name: scva2sfe-dist
                   path: |
