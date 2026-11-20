@@ -20,7 +20,7 @@ import type { BakeJob, BakeRender } from "./bake.js";
 import { bakeQuery, renderBake } from "./bake.js";
 import type { BakeEntry } from "../rules/bake-plan.js";
 import { BAKE_PLAN } from "../rules/bake-plan.js";
-import { BakeRenderer } from "../bake-renderer";
+import { BakeRenderer } from "../bake-renderer/index.js";
 import { Baker } from "./baker.js";
 import { readDrk } from "./names.js";
 import { INSTANT } from "./zone-tva.js";
