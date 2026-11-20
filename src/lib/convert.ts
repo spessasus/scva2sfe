@@ -20,10 +20,11 @@ import type { BakeJob, BakeRender } from "./bake.js";
 import { bakeQuery, renderBake } from "./bake.js";
 import type { BakeEntry } from "../rules/bake-plan.js";
 import { BAKE_PLAN } from "../rules/bake-plan.js";
-import { BakeRenderer } from "../bake-renderer/index.js";
+import { BakeRenderer } from "../bake-renderer";
 import { Baker } from "./baker.js";
 import { readDrk } from "./names.js";
 import { INSTANT } from "./zone-tva.js";
+import { sourceX } from "./curves.js";
 
 export const MAPS = ["sc55", "sc88", "sc88pro", "sc8820"] as const;
 export type MapName = (typeof MAPS)[number];
@@ -363,7 +364,6 @@ export function assemble(dll: Dll, dir: Directory, maps: Map<string, MapPresets>
  */
 function padOnsets(samples: BankSample[], dataOf: (k: number) => Float32Array, instruments: { zones: (BankZone & { peak: number })[] }[], groupOf: string[]) {
     const loss = (k: number, n: number) => {
-        const s = samples[k];
         const w = Math.max(8, Math.trunc((640 * n) / RAMP));
         const src = dataOf(k);
         const x = Float64Array.from(src.subarray(0, 40 * w));
@@ -689,8 +689,8 @@ class ShapeIndex {
 }
 
 /**
- * A curve's points (x = value * 128, the last at 16383) reduced to those a linear interpolation needs to stay within
- * eps of every 7 bit value (Douglas-Peucker on the 128 values).
+ * A curve's points (at sourceX of each value) reduced to those a linear interpolation needs to stay within eps of every
+ * 7 bit value (Douglas-Peucker on the 128 values, along x as core interpolates).
  */
 function simplify(ys: Uint16Array, eps: number): [number, number][] {
     const keep = new Uint8Array(128);
@@ -701,7 +701,7 @@ function simplify(ys: Uint16Array, eps: number): [number, number][] {
         let worst = -1;
         let err = eps;
         for (let x = a + 1; x < b; x++) {
-            const line = ys[a] + ((ys[b] - ys[a]) * (x - a)) / (b - a);
+            const line = ys[a] + ((ys[b] - ys[a]) * (sourceX(x) - sourceX(a))) / (sourceX(b) - sourceX(a));
             const d = Math.abs(ys[x] - line);
             if (d > err) {
                 err = d;
@@ -714,8 +714,7 @@ function simplify(ys: Uint16Array, eps: number): [number, number][] {
         }
     }
     const points = new Array<[number, number]>();
-    for (let x = 0; x < 128; x++) if (keep[x]) points.push([x * 128, ys[x]]);
-    points.push([16383, ys[127]]);
+    for (let x = 0; x < 128; x++) if (keep[x]) points.push([sourceX(x), ys[x]]);
     return points;
 }
 

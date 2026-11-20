@@ -7,7 +7,7 @@
 import type { BankModulator } from "./bank.js";
 import { pow } from "./math.js";
 import { bakedFilterModulators, centsPerCutoffUnit, envelopeModulators, filterCcModulators, filterDefaultsOff } from "./controllers.js";
-import { curveModulator } from "./curves.js";
+import { curveModulator, sourceX } from "./curves.js";
 import type { Directory, KitKey } from "./directory.js";
 import type { Dll } from "./dll.js";
 import { fileOffset } from "./dll.js";
@@ -43,12 +43,12 @@ const MAX_PARTS = 8;
  */
 const USER_BAKED = new Set(["Pai Ban", "TR-707 SD 3"]);
 /**
- * Core's gain chain (spessasynth_core patch 11): SPESSASYNTH_GAIN_FACTOR, its CC7 / CC11 defaults after a reset (100,
- * 127) through the negative concave sources at 960 cB each, its pan law.
+ * Core's gain chain: SPESSASYNTH_GAIN_FACTOR, its CC7 / CC11 defaults after a reset (100, 127) through the negative
+ * concave sources at 960 cB each (center-max source values, SFe 4.0 7.2, so 127 is no attenuation), its pan law.
  */
 export const CORE_GAIN_FACTOR = 0.6;
 const concaveNegative = (value: number) => {
-    const j = 16384 - Math.trunc((1 - (value << 7) / 16384) * 16384);
+    const j = 16384 - Math.trunc((1 - sourceX(value) / 16384) * 16384);
     if (j >= 16384) return 0;
     if (j <= 0) return 1;
     return Math.min(1, (-400 / 960) * Math.log10(j / 16384));
@@ -107,8 +107,8 @@ export interface RawInstrument {
 }
 
 /**
- * A modulator as a job hands it over: a custom curve's points as its 128 y values (x = value * 128, the last point
- * at 16383 repeats y[127]), every zone of the job refers to it by index.
+ * A modulator as a job hands it over: a custom curve's points as its 128 y values (x = sourceX of each value), every
+ * zone of the job refers to it by index.
  */
 export type PackedModulator = Omit<BankModulator, "points"> & { ys?: Uint16Array };
 

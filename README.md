@@ -25,7 +25,7 @@ the rest is AI slop `¯\_(ツ)_/¯`
 - Node.js **26** and npm, on Windows, Linux or macOS. Node.js 26 is the version the converter is tested with
   (`engines` in `package.json`). The converter is TypeScript, the small engine renderer it uses for some voices is
   WebAssembly built from `src/bake-renderer`.
-- spessasynth_core **4.4.11** or newer, the first release with SFe 4. `npm ci` installs it.
+- spessasynth_core **4.4.12** or newer, the first release with the final SFe 4.0 rules. `npm ci` installs it.
 - To build it: git and [Emscripten](https://emscripten.org) **6.0.13** (the emsdk) for the WebAssembly.
 - ffmpeg with libvorbis, only for the Ogg Vorbis bank (`--vorbis`).
 - `SCCore.dll` from SOUND Canvas VA **1.1.6, x64**. Other versions are refused by their hash:
@@ -34,7 +34,8 @@ the rest is AI slop `¯\_(ツ)_/¯`
 |--------------|----------------------------|--------------------------------------------------------------------|
 | `SCCore.dll` | SOUND Canvas VA 1.1.6, x64 | `117e6aa147a96fbde5e10d2caf16c89965acc1e44235fd245992216cc620bdb1` |
 
-The banks are SFe 4 files and need spessasynth_core 4.4.11 or newer to play right. They use its custom modulator
+The banks are SFe 4 files and need spessasynth_core 4.4.12 or newer to play right (4.4.11 had an earlier draft of
+SFe 4, where the filter levels and the controller curves come out wrong). They use its custom modulator
 curves, its extra generators and its alternating loops (see [Why SFe and not SF2](#why-sfe-and-not-sf2)). An older
 player ignores what it does not know, so pitch envelopes, second decays, filter types, LFO shapes, the drum sends and
 the controller responses play wrong there.
@@ -55,7 +56,7 @@ Then, with `em++` on `PATH` or `SCVA_EMSDK` set to the emsdk folder:
 
 ```sh
 git clone https://github.com/spessasus/scva2sfe && cd scva2sfe
-npm ci                    # spessasynth_core 4.4.11 and the build tools
+npm ci                    # spessasynth_core 4.4.12 and the build tools
 npm run build:wasm        # tools/build-bake-renderer.sh, or tools\build-bake-renderer.cmd on Windows
 npm run build:dist        # the compiled converter in dist/, with sbr.wasm next to it
 ```

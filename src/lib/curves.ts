@@ -4,8 +4,14 @@
 import type { BankModulator } from "./bank.js";
 
 /**
+ * The source value (0 to 16384) a 7 bit value reaches, SFe 4.0 7.2 "center-max": 128 * v up to 64, above it the
+ * rest of the range in 63 steps, so 64 is the center and 127 the full scale.
+ */
+export const sourceX = (v: number) => (v <= 64 ? v * 128 : Math.round(8192 + (8192 * (v - 64)) / 63));
+
+/**
  * A bipolar custom curve modulator from a 7 bit source (velocity, key or a controller) whose output at value x is
- * values[x] in the destination's units: a point at every x * 128, y = 8192 + 8192 * values[x] / amount. Undefined
+ * values[x] in the destination's units: a point at every sourceX(x), y = 8192 + 8192 * values[x] / amount. Undefined
  * where every value rounds to nothing.
  */
 export function curveModulator(source: "velocity" | "key" | "cc", values: ArrayLike<number>, dest: string, cc?: number) {
@@ -15,9 +21,8 @@ export function curveModulator(source: "velocity" | "key" | "cc", values: ArrayL
     if (amount < 1) return undefined;
     const points = new Array<[number, number]>();
     for (let x = 0; x < 128; x++) {
-        points.push([x * 128, Math.round(Math.min(16384, Math.max(0, 8192 + (8192 * values[x]) / amount)))]);
+        points.push([sourceX(x), Math.round(Math.min(16384, Math.max(0, 8192 + (8192 * values[x]) / amount)))]);
     }
-    points.push([16383, points[127][1]]);
     const m: BankModulator = { source, curve: "custom", points, negative: false, bipolar: true, dest, amount };
     if (cc !== undefined) m.cc = cc;
     return m;

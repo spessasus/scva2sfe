@@ -79,8 +79,9 @@ export function svfResponse(f: number, q: number, hz: ArrayLike<number>, tap: Sv
 }
 
 /**
- * Core's biquad magnitude (voice_filter.ts computeCoefficients) for filterType type at cutoff cents and resonance cB,
- * the passband loss of the resonance included.
+ * Core's biquad magnitude (voice_filter.ts computeCoefficients) for filterType type at cutoff cents and resonance cB.
+ * The zones keep their resonance in filterQOffset, which moves the Q and never the level (SFe 4.0 7.1.1), so there is
+ * no passband loss here. Only initialFilterQ would bring one, and the bank leaves it at 0.
  */
 export function coreResponse(type: number, cents: number, qcb: number, hz: ArrayLike<number>, rate = DESIGN_RATE) {
     return coreOn(type, cents, qcb, trigOf(hz, rate), rate);
@@ -101,7 +102,6 @@ function trigOf(hz: ArrayLike<number>, rate: number) {
 function coreOn(type: number, cents: number, qcb: number, trig: Trig, rate: number) {
     const fc = Math.min(8.176 * pow(2, cents / 1200), rate * 0.45);
     const resonance = pow(10, (qcb - 30.1) / 200);
-    const qGain = 1 / Math.sqrt(pow(10, qcb / 200));
     const w = (2 * Math.PI * fc) / rate;
     const cw = Math.cos(w);
     const sw = Math.sin(w);
@@ -110,19 +110,19 @@ function coreOn(type: number, cents: number, qcb: number, trig: Trig, rate: numb
     let b1: number;
     let b2: number;
     if (type === 1) {
-        b0 = ((1 + cw) / 2) * qGain;
-        b1 = -(1 + cw) * qGain;
+        b0 = (1 + cw) / 2;
+        b1 = -(1 + cw);
         b2 = b0;
     } else if (type === 2) {
-        b0 = (sw / 2) * qGain;
+        b0 = sw / 2;
         b1 = 0;
         b2 = -b0;
     } else if (type === 3) {
-        b0 = -cw * qGain;
-        b1 = 2 * qGain;
+        b0 = -cw;
+        b1 = 2;
         b2 = b0;
     } else {
-        b1 = (1 - cw) * qGain;
+        b1 = 1 - cw;
         b0 = b1 / 2;
         b2 = b0;
     }
@@ -146,13 +146,13 @@ function coreOn(type: number, cents: number, qcb: number, trig: Trig, rate: numb
 }
 
 /**
- * The SVF's analog design as core cents and resonance: cutoff fs / pi asin(f / 2), Q = 1 / q, and the passband
- * loss core takes for that resonance given back as gain (dB). Core's highpass, bandpass and peak take it.
+ * The SVF's analog design as core cents and resonance: cutoff fs / pi asin(f / 2), Q = 1 / q. Core's highpass, bandpass
+ * and peak take it. The resonance sits on filterQOffset, so no gain comes back.
  */
 export function analogDesign(f: number, q: number) {
     const cents = 1200 * Math.log2(Math.max((SVF_RATE / Math.PI) * Math.asin(Math.min(1, f / 2)), 10) / 8.176);
     const qcb = 200 * Math.log10(1 / q) + 30.1;
-    return { cents, qcb, gainDb: qcb / 20 };
+    return { cents, qcb, gainDb: 0 };
 }
 
 /**
@@ -203,12 +203,12 @@ export function fitLowpass(f: number, q: number, signed: boolean, starts: number
         r[h.length] = x[1] * PULL;
         return r;
     };
-    const lo = Float64Array.from([1500, signed ? -960 : 0, signed ? -48 : -1]);
+    const lo = Float64Array.from([1500, signed ? -960 : 0, -48]);
     const hi = Float64Array.from([14500, 960, 48]);
     const scale = Float64Array.from([100, 30, 1]);
     let best: { x: Float64Array; cost: number } | undefined;
     const q0s = [...new Set([...(signed ? [-60] : []), 0, bump * 10, bump * 20])];
-    const all = [...q0s.map((q0) => [Math.min(Math.max(c0, 1600), 14400), Math.min(q0, 950), Math.min(q0, 950) / 20]), ...starts];
+    const all = [...q0s.map((q0) => [Math.min(Math.max(c0, 1600), 14400), Math.min(q0, 950), 0]), ...starts];
     for (const s of all) {
         const r = solve(resid, Float64Array.from(s), lo, hi, scale, 200);
         if (!best || r.cost < best.cost) best = r;
@@ -344,7 +344,7 @@ function through(spectrum: Spectrum, ratio: number, h: (hz: Float64Array) => Flo
 export function staticFilter(tap: SvfTap, f: number, q: number, ratio: number, spectrum: Spectrum) {
     const d = analogDesign(f, q);
     const svf = through(spectrum, ratio, (hz) => svfResponse(f, q, hz, tap));
-    const core = through(spectrum, ratio, (hz) => coreResponse(CORE_TYPES[tap], d.cents, d.qcb, hz).map((x) => x * pow(10, d.qcb / 400)));
+    const core = through(spectrum, ratio, (hz) => coreResponse(CORE_TYPES[tap], d.cents, d.qcb, hz));
     if (svf.total <= 0) return { move: 0, makeUp: 0, svfGain: 0 };
     const move = Math.log2(Math.max(core.centroid, 1) / Math.max(svf.centroid, 1));
     return {

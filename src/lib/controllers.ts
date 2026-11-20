@@ -87,11 +87,13 @@ function sumOf(tvf: TvfModel, f: number) {
 }
 
 /**
- * Zero amount copies of core's CC74 default and the bank's CC71 pair: they switch those off in a zone (by identity).
+ * Zero amount copies of the CC74 and CC71 defaults: they switch those off in a zone (by identity). The CC71 default
+ * (SFe 7.3) moves filterQOffset above 64 only, through a CC71 switch amount source.
  */
 export function filterDefaultsOff() {
-    return [ccModulator(74, "linear", 0, "initialFilterFc"), ccModulator(71, "linear", 0, "filterQOffset"),
-        ccModulator(71, "linear", 0, "gain")];
+    const resonance = ccModulator(71, "linear", 0, "filterQOffset");
+    resonance.secondary = { source: "cc", cc: 71, curve: "switch", negative: false, bipolar: false };
+    return [ccModulator(74, "linear", 0, "initialFilterFc"), resonance];
 }
 
 const dampOf = (byte: number, cc: number) => Math.max(4, Math.min(0x7f, 2 * (64 - cc) + byte));
@@ -100,9 +102,9 @@ const dampOf = (byte: number, cc: number) => Math.max(4, Math.min(0x7f, 2 * (64 
  * CC74 and CC71 on a zone with a live filter through the engine's own path, as custom curves. CC74 moves the cutoff
  * (the open filter, the ceiling left to maxFilterFc), CC71 core's resonance, the passband gain and, on a lowpass, the
  * ceiling. A lowpass reads the filter map. A live highpass, bandpass or peak reads the analog design its zone's filter
- * came from (zone-tvf), cutoff in cents, core's resonance and its level term (qcb / 2): without these core's default
- * CC74 would sweep the highpass by its own amount (Fiddle under the cutoff NRPN went 0.5 octave bright). Zero amount
- * copies switch off core's defaults and the bank's CC71 pair.
+ * came from (zone-tvf), cutoff in cents and core's resonance: without these core's default CC74 would sweep the
+ * highpass by its own amount (Fiddle under the cutoff NRPN went 0.5 octave bright). Zero amount copies switch off
+ * core's defaults.
  */
 export function filterCcModulators(tvf: TvfModel, maps: FilterMaps, v: TvfVoice, held: number, tap: SvfTap = "low") {
     const low = tap === "low";
@@ -142,7 +144,7 @@ export function filterCcModulators(tvf: TvfModel, maps: FilterMaps, v: TvfVoice,
         dg[x] = 10 * (p.gainDb - p0.gainDb);
         if (low) dc[x] = ceilCents(damp) - top0;
     }
-    const mods = [...filterDefaultsOff(), ccModulator(71, "linear", 0, "initialFilterQ")];
+    const mods = filterDefaultsOff();
     const curves = [ccCurve(74, d74, "initialFilterFc"), ccCurve(71, dq, "filterQOffset"), ccCurve(71, dg, "gain")];
     if (low) curves.push(ccCurve(71, dc, "maxFilterFc"));
     for (const m of curves) {

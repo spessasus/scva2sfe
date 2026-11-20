@@ -85,41 +85,8 @@ export function buildSoundBank(bank: Bank, audio: Record<string, Float32Array>, 
             0
         )
     ];
-    // CC71 moves the resonance on filterQOffset, where the zones keep theirs (it goes below 0, a Q under 0.707).
-    // Core cancels the filter's -r/20 dB only for its own CC71 -> initialFilterQ, so the moved one gets a gain twin at
-    // half its amount: the SVF's passband does not change with the resonance
-    const isResonance = (m: Modulator) =>
-        m.primarySource.isCC &&
-        m.primarySource.index === 71 &&
-        !m.secondarySource.isCC &&
-        m.secondarySource.index === 0 &&
-        m.destination === GeneratorTypes.initialFilterQ;
-    const resonance = soundBank.defaultModulators.find(isResonance);
-    if (!resonance) throw new Error("core's default modulators have no CC71 resonance");
-    // core's own CC71 compensation (a CC71 -> gain default, above 64 only) goes too, the twin below covers it
-    soundBank.defaultModulators = soundBank.defaultModulators.filter(
-        (m) =>
-            !isResonance(m) &&
-            !(m.primarySource.isCC && m.primarySource.index === 71 && m.destination === GeneratorTypes.gain)
-    );
-    soundBank.defaultModulators = [
-        ...soundBank.defaultModulators,
-        // a source belongs to one modulator (core links its curve to the holder), so each gets copies
-        new Modulator(
-            ModulatorSource.copyFrom(resonance.primarySource),
-            ModulatorSource.copyFrom(resonance.secondarySource),
-            GeneratorTypes.filterQOffset,
-            resonance.transformAmount,
-            0
-        ),
-        new Modulator(
-            ModulatorSource.copyFrom(resonance.primarySource),
-            ModulatorSource.copyFrom(resonance.secondarySource),
-            GeneratorTypes.gain,
-            resonance.transformAmount / 2,
-            0
-        )
-    ];
+    // CC71 keeps core's default (SFe 7.3): filterQOffset above 64, which moves the Q and not the level, like the SVF
+
     // Velocity -> attenuation is a custom curve per zone (the measured level per velocity), which does not replace the
     // default by identity, so the default goes and the zones without a measured curve carry it themselves.
     // The envelope time defaults on CC72 / CC73 / CC75 have a CC switch secondary source since core 4.4.10, so the
