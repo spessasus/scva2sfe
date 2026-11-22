@@ -20,6 +20,12 @@ The text below is written by AI too.
 The SFe format, DMOD and the library that writes the banks are by me,
 the rest is AI slop `¯\_(ツ)_/¯`
 
+
+## [Online converter](https://spessasus.github.io/scva2sfe/)
+
+The online converter requires no installation, just supplying your own `SCCore.dll`.
+It even works on smartphones!
+
 ## Requirements
 
 - Node.js **26** and npm, on Windows, Linux or macOS. Node.js 26 is the version the converter is tested with
