@@ -36,7 +36,7 @@ export type VorbisEncoder = (data: Float32Array, sampleRate: number) => Promise<
 export interface WriteOptions {
     log?: (line: string) => void;
     /**
-     * The bank's creation date (default a fixed one, so that two conversions write the same bytes).
+     * The bank's creation date (default now). The hosts pass one date for every bank of a conversion.
      */
     creationDate?: Date;
 }
@@ -109,8 +109,11 @@ export function buildSoundBank(bank: Bank, audio: Record<string, Float32Array>, 
         if (curve.useCount === 0) soundBank.deleteCustomCurve(curve);
     }
     soundBank.soundBankInfo.name = bank.name;
-    soundBank.soundBankInfo.engineer = "scva2sfe";
-    soundBank.soundBankInfo.creationDate = options.creationDate ?? new Date(Date.UTC(2026, 0, 1));
+    soundBank.soundBankInfo.product = "scva2sfe";
+    soundBank.soundBankInfo.engineer = "Spessasus";
+    soundBank.soundBankInfo.copyright = "Roland Corporation";
+    soundBank.soundBankInfo.comment = "Generated with scva2sfe (https://github.com/spessasus/scva2sfe). Do not distribute.";
+    soundBank.soundBankInfo.creationDate = options.creationDate ?? new Date();
 
     /**
      * The engine's interpolation lowpass on a sample (a zero phase FIR). Inside the loop the

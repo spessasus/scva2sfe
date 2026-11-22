@@ -106,7 +106,9 @@ async function run(req: ConvertRequest, send: (m: ConversionMessage) => void) {
     send({ type: "stage", id: "write", state: "run" });
     await paint();
     // the main bank stays only while the map banks are still to be cut out of it
-    let main: ArrayBuffer | undefined = writeBank(model!.bank, model!.audio, { log });
+    // one creation date for every bank of this conversion
+    const creationDate = new Date();
+    let main: ArrayBuffer | undefined = writeBank(model!.bank, model!.audio, { log, creationDate });
     await save("", main);
     times.write = (performance.now() - t) / 1000;
     const maps = MAP_BANKS.filter((m) => wanted.has(`-${m.name}` as OutputId));
@@ -119,7 +121,7 @@ async function run(req: ConvertRequest, send: (m: ConversionMessage) => void) {
         for (const map of full) {
             send({ type: "stage", id: `write${tags[map]}`, state: "run" });
             await paint();
-            await save(tags[map], writeBank({ ...model!.bank, presets: model!.presetsFor(map) }, model!.audio, { log }));
+            await save(tags[map], writeBank({ ...model!.bank, presets: model!.presetsFor(map) }, model!.audio, { log, creationDate }));
         }
         times.full = (performance.now() - t) / 1000;
     }

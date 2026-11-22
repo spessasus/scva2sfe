@@ -114,7 +114,9 @@ const save = (name: string, data: ArrayBuffer) => {
         over++;
     }
 };
-const bank = writeBank(result.bank, result.audio, { log });
+// one creation date for every bank of this conversion
+const creationDate = new Date();
+const bank = writeBank(result.bank, result.audio, { log, creationDate });
 save(`${stem}.sf4`, bank);
 times.write = (performance.now() - t) / 1000;
 if (perMap) {
@@ -128,7 +130,7 @@ if (fullMaps) {
     const tags: Record<string, string> = { sc88: "88", sc88pro: "88pro", sc8820: "8820" };
     for (const map of MAPS) {
         if (map === "sc55") continue;
-        save(`${stem}-${tags[map]}-full.sf4`, writeBank({ ...result.bank, presets: result.presetsFor(map) }, result.audio, { log }));
+        save(`${stem}-${tags[map]}-full.sf4`, writeBank({ ...result.bank, presets: result.presetsFor(map) }, result.audio, { log, creationDate }));
     }
     times.full = (performance.now() - t) / 1000;
 }
