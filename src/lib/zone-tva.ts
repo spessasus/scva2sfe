@@ -5,9 +5,9 @@
  */
 import type { BankModulator } from "./bank.js";
 import { pow } from "./math.js";
-import { curveModulator } from "./curves.js";
-import { projectVolume, SILENCE_DB, timecents, volumeRms } from "./envfit.js";
-import type { LevelContext, TvaModel, TvaSegments } from "./tva.js";
+import { ccCurve, curveModulator, gridValues } from "./curves.js";
+import { isolated, projectVolume, SILENCE_DB, timecents, volumeRms, warmStart } from "./envfit.js";
+import type { EnvelopeBias, LevelContext, TvaModel, TvaSegments } from "./tva.js";
 import { TICK } from "./tva.js";
 
 /**
@@ -68,6 +68,10 @@ export interface TvaZoneQuery {
     keyHi: number;
     velLo: number;
     velHi: number;
+    /**
+     * The part's envelope controllers the projection plays under (the CC75 fits).
+     */
+    bias?: EnvelopeBias;
 }
 
 export interface TvaSplit {
@@ -93,6 +97,10 @@ export interface TvaZone {
      * zone plays better as two, each projected at its own reference (tvaZones does that).
      */
     split?: TvaSplit;
+    /**
+     * The volume warm start right after the reference projection (the CC75 fits begin there).
+     */
+    start?: Float64Array;
 }
 
 /**
@@ -152,6 +160,8 @@ const capped = (gens: Record<string, number>) => {
 export function gensAt(zone: TvaZone, key: number, velocity: number) {
     const g = { ...zone.gens };
     for (const m of zone.mods) {
+        // controller curves are 0 at their default, where these checks play
+        if (m.source === "cc") continue;
         const y = m.points![m.source === "key" ? key : velocity][1];
         g[m.dest] = (g[m.dest] ?? (m.dest === "initialAttenuation" ? 0 : -12000)) + ((y - 8192) / 8192) * m.amount;
     }
@@ -163,7 +173,7 @@ export function gensAt(zone: TvaZone, key: number, velocity: number) {
  * caps applied) and the gain at the envelope's 0 dB.
  */
 function project(model: TvaModel, q: TvaZoneQuery) {
-    const s = model.segments(q.b, q.key, q.velocity, q.levels);
+    const s = model.segments(q.b, q.key, q.velocity, q.levels, q.bias);
     if (!s) return undefined;
     // a key off partial (byte 0 = 0xff) starts at the note off and runs its segments as if the key were held. The
     // bank plays it on release (sampleModes 2), where only the release shapes it: one slope that keeps the curve's
@@ -277,6 +287,7 @@ function checkError(model: TvaModel, q: TvaZoneQuery, key: number, velocity: num
 export function tvaZone(model: TvaModel, q: TvaZoneQuery) {
     const p = project(model, q);
     if (!p) return undefined;
+    const start = warmStart("volume");
     const gens = p.gens;
     const keyOff = q.b[0] === 0xff;
     const mods = new Array<BankModulator>();
@@ -348,7 +359,7 @@ export function tvaZone(model: TvaModel, q: TvaZoneQuery) {
             add(curveModulator("velocity", d, "delayVoice"));
         }
     }
-    const zone: TvaZone = { gens, mods, top: p.top };
+    const zone: TvaZone = { gens, mods, top: p.top, start };
     // the split check: the curves at the zone's edge keys and at lower velocities against the engine's curve there.
     // Where they miss by more than SPLIT_DB over the reference's own error, the projection at that point says
     // whether a zone of its own would do better by more than SPLIT_DB
@@ -381,6 +392,54 @@ export function tvaZone(model: TvaModel, q: TvaZoneQuery) {
         if (split.key !== undefined || split.velocity !== undefined) zone.split = split;
     }
     return zone;
+}
+
+/**
+ * CC75 / the decay NRPN on a melodic zone the bank writes (after every split decision). The engine biases the rates
+ * of segments 2-3, but the fit spreads those segments over its generators freely (one long decay as decay + decay2, a
+ * slow fall standing for a level the segment reaches much later), so no ratio of one rate byte follows it. The
+ * envelope is projected again at a grid of CC75 values, and each generator's offset from the reference fit, in between
+ * linearly, becomes its CC75 curve, the peak's change an initialAttenuation one (Piano 1 at CC75 0 dropped 15 dB
+ * where the DLL goes silent, Saw Wave fell silent where the DLL holds its sustain).
+ */
+export function tvaDecayCurves(model: TvaModel, q: TvaZoneQuery, zone: TvaZone) {
+    const out = new Array<BankModulator>();
+    const grid = [0, 16, 32, 48, 64, 80, 96, 112, 127];
+    const fitAt = (x: number) => project(model, { ...q, bias: { late: (x - 64) * 2 } });
+    // outward from 64 in two runs, each from the reference's own solution, so every fit starts from its neighbour
+    // toward the reference and keeps its segments on the same generators (interpolating between two fits that hold a
+    // fall in different generators would play neither). Isolated: later zones fit as without these
+    const up = isolated(() => [80, 96, 112, 127].map(fitAt), zone.start);
+    const down = isolated(() => [48, 32, 16, 0].map(fitAt), zone.start).reverse();
+    const fits = [...down, { gens: zone.gens, top: zone.top }, ...up];
+    const mid = grid.indexOf(64);
+    const curve = (name: string, at: (number | undefined)[], least: number) => {
+        // a fit that failed takes its neighbour toward 64
+        for (let j = mid; j < grid.length; j++) if (at[j] === undefined) at[j] = at[j - 1];
+        for (let j = mid; j >= 0; j--) if (at[j] === undefined) at[j] = at[j + 1];
+        const c = gridValues(grid, at as number[]);
+        // an attack without fade in (SFe's -32768) stays exactly there until the curve reaches a timed one, else
+        // core reads the sum as -12000 and fades it in
+        if (name === "attackVolEnv" && (zone.gens.attackVolEnv ?? -12000) < -12000) {
+            for (let x = 0; x < 128; x++) if (zone.gens.attackVolEnv + c[x] < -12000) c[x] = 0;
+        }
+        const m = ccCurve(75, c, name);
+        if (m && m.amount >= least) out.push(m);
+    };
+    for (const name of ["attackVolEnv", "holdVolEnv", "decayVolEnv", "decay2VolEnv", "sustainVolEnv", "sustain2VolEnv"]) {
+        const sustain = name.startsWith("sustain");
+        // the offset from the generator as written (SFe's -32768 attack too), a segment at its floor in both stays put
+        const from = zone.gens[name] ?? (sustain ? 0 : -12000);
+        curve(name, fits.map((f) => {
+            if (!f) return undefined;
+            const to = f.gens[name] ?? (sustain ? 0 : -12000);
+            if (sustain) return to - from;
+            return from <= -12000 && to <= -12000 ? 0 : Math.min(32767, Math.max(to, -12000) - from);
+        }), sustain ? 5 : 20);
+    }
+    // each fit is normalized to its own peak: one that comes lower (a slow swell cut by the projection) is louder
+    curve("initialAttenuation", fits.map((f) => (f && f.top > 0 ? 200 * Math.log10(zone.top / f.top) : undefined)), 5);
+    return out;
 }
 
 /**

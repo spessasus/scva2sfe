@@ -435,6 +435,33 @@ export function resetWarm() {
     for (const m of memos) m.clear();
 }
 
+let inIsolation = false;
+
+/**
+ * A kind's warm start as it is now (a copy), for isolated.
+ */
+export function warmStart(kind: string) {
+    return warm.get(kind)?.slice();
+}
+
+/**
+ * Runs volume projections that must not touch the job's own (the CC75 fits, zone-tva): they keep a memo of their own
+ * and the warm starts are as before afterwards, so the zones after them fit exactly as without them. volume: the
+ * volume warm start to begin from.
+ */
+export function isolated<T>(run: () => T, volume?: Float64Array) {
+    const starts = new Map(warm);
+    if (volume) warm.set("volume", volume.slice());
+    inIsolation = true;
+    try {
+        return run();
+    } finally {
+        inIsolation = false;
+        warm.clear();
+        for (const [k, v] of starts) warm.set(k, v);
+    }
+}
+
 /**
  * A projection memo, emptied with the warm starts.
  */
@@ -473,6 +500,7 @@ export function warmMemo<T>(memo: Memo<{ value: T; x?: Float64Array }>, kind: st
 }
 
 const volumes = projectionMemo<ReturnType<typeof projectVolumeOnce>>();
+const isolatedVolumes = projectionMemo<ReturnType<typeof projectVolumeOnce>>();
 const modEnvs = projectionMemo<ReturnType<typeof projectModEnvOnce>>();
 
 /**
@@ -480,7 +508,7 @@ const modEnvs = projectionMemo<ReturnType<typeof projectModEnvOnce>>();
  * Returns the gain at the envelope's 0 dB and the generators. The result is shared between equal calls: callers copy before they change it.
  */
 export function projectVolume(long: Curve, short: Curve | undefined, free: boolean, tail?: Tail) {
-    return warmMemo(volumes, "volume", [long.gain, long.dt, long.holdPoints, short?.gain, short?.dt, short?.holdPoints, free ? 1 : 0, tail?.gain,
+    return warmMemo(inIsolation ? isolatedVolumes : volumes, "volume", [long.gain, long.dt, long.holdPoints, short?.gain, short?.dt, short?.holdPoints, free ? 1 : 0, tail?.gain,
         tail?.from, tail?.weight], () => projectVolumeOnce(long, short, free, tail));
 }
 

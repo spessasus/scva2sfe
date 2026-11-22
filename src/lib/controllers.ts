@@ -8,7 +8,7 @@
  */
 import type { BankModulator } from "./bank.js";
 import { pow } from "./math.js";
-import { ccCurve, ccModulator, ccScale, curveModulator } from "./curves.js";
+import { ccCurve, ccModulator, ccScale, curveModulator, gridValues } from "./curves.js";
 import type { Generators } from "./envfit.js";
 import type { SvfTap, Spectrum } from "./filter-map.js";
 import { analogDesign, OPEN_CENTS, SVF_RATE, svfResponse } from "./filter-map.js";
@@ -17,12 +17,10 @@ import type { TvfModel, TvfVoice } from "./tvf.js";
 import type { FilterMaps } from "./zone-tvf.js";
 
 const MIN_SEGMENT_TICKS = 9;
-// (controller, its default curve, generator, the partial's rate byte for it)
+// (controller, generator, the partial's rate byte for it). CC75 comes from fits at other CC75 values (zone-tva)
 const ENVELOPE_CCS: [number, string, number][] = [
     [73, "attackVolEnv", 0x5e],
     [73, "holdVolEnv", 0x5f],
-    [75, "decayVolEnv", 0x60],
-    [75, "decay2VolEnv", 0x61],
     [72, "releaseVolEnv", 0x62]
 ];
 
@@ -50,12 +48,12 @@ export interface EnvelopeZone {
 }
 
 /**
- * CC73 / CC75 / CC72 on a zone's volume envelope: the timecent offset of the segment against 64 at every value (a
- * segment the controller makes instant lands on the generator's floor). The writer drops core's defaults. A drum key
- * gets CC73 only (DLL A/B: attack 96 took drum hits 23 to 37 dB down there). The engine moves drum decays with CC75
- * too, but the fit's drum decays do not follow one rate byte (TR-808 open hat went 15 dB quiet at CC75 32), and the
- * DLL ignores CC72 on drum keys. The drum hold keeps CC73: without it the TR-808 kit's onset at CC73 96 went back from
- * 8 to 30 dB off the DLL.
+ * CC73 / CC72 on a zone's volume envelope: the timecent offset of the segment against 64 at every value (a segment
+ * the controller makes instant lands on the generator's floor). CC75 comes from envelope fits at other CC75 values
+ * (zone-tva). The writer drops core's defaults. A drum key gets CC73 only (DLL A/B: attack 96 took drum hits 23 to 37
+ * dB down there), the DLL ignores CC72 on drum keys, and its CC75 waits for the drum fits (a ratio curve took the
+ * TR-808 open hat 15 dB quiet at CC75 32). The drum hold keeps CC73: without it the TR-808 kit's onset at CC73 96
+ * went back from 8 to 30 dB off the DLL.
  */
 export function envelopeModulators(tva: TvaModel, b: Uint8Array, gens: Generators, zone: EnvelopeZone, drum = false) {
     const out = new Array<BankModulator>();
@@ -72,10 +70,9 @@ export function envelopeModulators(tva: TvaModel, b: Uint8Array, gens: Generator
         // an instant attack, hold or release turns into a timed one above 64 (the bias moves its rate index up the
         // curve), and so does an attack or hold the fit folded to its floor (at most 6 ms, zone-tva) while the hold is
         // instant (a timed hold carries the folded attack, and its ratio curve below scales both). 70 % of the partials
-        // start instantly, and CC73 / the attack NRPN did nothing on them (the DLL reaches about a second at 96). The
-        // decays stay off this: their generators come from the envelope fit, not from one rate byte each
+        // start instantly, and CC73 / the attack NRPN did nothing on them (the DLL reaches about a second at 96)
         const folded = base > 0 && early(byte) && gen <= -12000 && segmentTicks(tva, b[0x5f], 0) === 0;
-        if ((base === 0 && byte !== 0x60 && byte !== 0x61) || folded) {
+        if (base === 0 || folded) {
             const k0 = keyScale(byte, zone.key);
             const v0 = velocityScale(byte, zone.velocity);
             const y = new Float64Array(128);
@@ -270,22 +267,12 @@ export function filterCcModulators(tvf: TvfModel, maps: FilterMaps, v: TvfVoice,
         }
         return rows;
     });
-    // grid values to every CC74 value, linearly
-    const spread = (h: number[]) => {
-        const full = new Float64Array(128);
-        for (let x = 0; x < 128; x++) {
-            let j = 0;
-            while (j < grid.length - 2 && grid[j + 1] <= x) j++;
-            const t = (x - grid[j]) / (grid[j + 1] - grid[j]);
-            full[x] = h[j] + (h[j + 1] - h[j]) * t;
-        }
-        return full;
-    };
     const scaled = (m: BankModulator | undefined, g: Float64Array, row: "c" | "q" | "g") => {
         if (!m || !low) return m;
         let gg = 0;
         for (let x = 0; x < 128; x++) gg += g[x] * g[x];
-        const full = spread(
+        const full = gridValues(
+            grid,
             at74.map((r) => {
                 let s = 0;
                 for (let x = 0; x < 128; x++) s += g[x] * r[row][x];
@@ -314,7 +301,7 @@ export function filterCcModulators(tvf: TvfModel, maps: FilterMaps, v: TvfVoice,
     // gain) cost CC74 0 about 1 dB median against the DLL and Sine Wave 7 dB at CC74 96
     const curves = [
         ccCurve(74, d74, "initialFilterFc"),
-        low ? ccCurve(74, spread(at74.map((r, j) => (grid[j] >= 64 ? Math.max(0, r.q0.qcb - p0.qcb) : 0))), "filterQOffset") : undefined,
+        low ? ccCurve(74, gridValues(grid, at74.map((r, j) => (grid[j] >= 64 ? Math.max(0, r.q0.qcb - p0.qcb) : 0))), "filterQOffset") : undefined,
         scaled(ccCurve(71, d71, "initialFilterFc"), d71, "c"),
         scaled(ccCurve(71, dq, "filterQOffset"), dq, "q"),
         scaled(ccCurve(71, dg, "gain"), dg, "g")

@@ -24,7 +24,7 @@ import type { LevelContext } from "./tva.js";
 import { TvaModel } from "./tva.js";
 import { TvfModel } from "./tvf.js";
 import type { TvaZone, TvaZoneQuery } from "./zone-tva.js";
-import { tvaZone } from "./zone-tva.js";
+import { tvaDecayCurves, tvaZone } from "./zone-tva.js";
 import type { FilterMaps, TvfZone } from "./zone-tvf.js";
 import { tvfZone } from "./zone-tvf.js";
 
@@ -446,6 +446,12 @@ export class ZoneBuilder {
         if (tf?.gens.modEnv2ToFilterFc !== undefined && pz?.kind === "step") pz = undefined;
         const split = tv.split ?? pz?.split ?? tf?.split;
         if (split && !noSplit && (split.key !== undefined || split.velocity !== undefined)) return { split };
+        // the zone stays: its CC75 curves (eight more volume projections, so only for zones the bank writes)
+        if (!keyOff && !drum) {
+            t0 = performance.now();
+            tv.mods.push(...tvaDecayCurves(tva, { ...base, endAt } as TvaZoneQuery, tv));
+            this.timing.tva += performance.now() - t0;
+        }
         // generators
         const tune = c.tuneBase + (pz?.tune ?? 0);
         const coarse = Math.round(tune / 100);

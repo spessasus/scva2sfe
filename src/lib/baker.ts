@@ -142,6 +142,8 @@ export class Baker {
         const keepAttack = r.attack !== undefined;
         const mods = z.mods.filter((i) => {
             const m = this.mods[i];
+            // the decay is in the render too: CC75's curves (on the attack as well, zone-tva) have nothing to move
+            if (m.source === "cc" && m.cc === 75) return false;
             // the filter's controller level curves go with the filter (gain itself stays, it holds the zone's level),
             // the live filter's on gain and a sample baked filter's on initialAttenuation
             const level = m.dest === "gain" || m.dest === "initialAttenuation";

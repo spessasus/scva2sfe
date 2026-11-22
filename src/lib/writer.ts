@@ -22,11 +22,11 @@ import { DEPTH_RANGE_SCALE } from "./lfo.js";
 import { pruneFallbacks } from "./prune.js";
 
 /**
- * The size cap of one bank file in bytes (decimal 205 MB, the project's limit). The bake plan's budget was set for
- * 200 MB, SFe 4.0's 16 byte extended modulator records add about 3.6 MB to the full banks.
+ * The size cap of one bank file in bytes (decimal 300 MB, the user's limit since 2026-11-22: exact controller curves
+ * and the CC75 fits took the full banks past the old 205 MB). The bake plan's budget was set for 200 MB.
  * The hosts check every file they write against it.
  */
-export const BANK_CAP = 205_000_000;
+export const BANK_CAP = 300_000_000;
 
 /**
  * Encodes one sample's mono float audio to an Ogg Vorbis stream (the CLI passes ffmpeg's libvorbis).

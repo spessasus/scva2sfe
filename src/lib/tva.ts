@@ -49,6 +49,15 @@ export interface LevelContext {
     holdsOn?: boolean;
 }
 
+/**
+ * The part's envelope controllers as rate index offsets (TvaModel.segments).
+ */
+export interface EnvelopeBias {
+    early?: number;
+    late?: number;
+    release?: number;
+}
+
 export interface TvaSegments {
     /**
      * The four segment targets as 16 bit levels over 65535 (the engine's amp_of of base level minus segment level).
@@ -214,9 +223,11 @@ export class TvaModel {
     }
 
     /**
-     * The TVA at a key (the MIDI note, a drum's kit pitch) and velocity, undefined outside the velocity window.
+     * The TVA at a key (the MIDI note, a drum's kit pitch) and velocity, undefined outside the velocity window. bias:
+     * the part's envelope controllers as rate index offsets ((value - 64) * 2: CC73 on segments 0-1, CC75 on 2-3, CC72
+     * on the release), an index under 0 makes the segment instant.
      */
-    public segments(b: Uint8Array, key: number, velocity: number, levels: LevelContext): TvaSegments | undefined {
+    public segments(b: Uint8Array, key: number, velocity: number, levels: LevelContext, bias: EnvelopeBias = {}): TvaSegments | undefined {
         const lb = this.dir.levelByte(b, velocity);
         if (lb === undefined) return undefined;
         const base = this.baseLevel(b, key, lb, levels);
@@ -228,15 +239,20 @@ export class TvaModel {
         const [kr, krel] = this.keyScales(b, key);
         const early = this.envLevelScale(lb, b[0x69]);
         const late = this.envLevelScale(lb, b[0x6a]);
-        const timeOf = (rate: number, vr: number) => {
-            const t = this.rateCurve(rate & 0x7f);
+        const rateAt = (rate: number, offset = 0) => {
+            const i = (rate & 0x7f) + offset;
+            return i < 0 ? 0 : this.rateCurve(Math.min(i, 0x7f));
+        };
+        const timeOf = (rate: number, vr: number, offset?: number) => {
+            const t = rateAt(rate, offset);
             if (t < 9) return 0;
             const k = Math.min((kr * t) >>> 8, 0xffff);
             return ((vr * k) >>> 8) & 0xffff;
         };
-        const times = [timeOf(b[0x5e], early), timeOf(b[0x5f], early), timeOf(b[0x60], late), timeOf(b[0x61], late)];
+        const times = [timeOf(b[0x5e], early, bias.early), timeOf(b[0x5f], early, bias.early), timeOf(b[0x60], late, bias.late),
+            timeOf(b[0x61], late, bias.late)];
         const shapes = [0, 1, 2, 3].map((k): Shape => (b[0x5e + k] & 0x80 ? "line" : "curve"));
-        const t = this.rateCurve(b[0x62] & 0x7f);
+        const t = rateAt(b[0x62], bias.release);
         const release = t > 8 ? (Math.min((krel * t) >>> 8, 0xffff) * late) >>> 8 : 0;
         return { amps, times, shapes, release, releaseShape: b[0x62] & 0x80 ? "line" : "curve", holdsOn: levels.holdsOn === true };
     }

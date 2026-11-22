@@ -35,6 +35,19 @@ export function curveModulator(source: "velocity" | "key" | "cc", values: ArrayL
 export const ccCurve = (cc: number, values: ArrayLike<number>, dest: string) => curveModulator("cc", values, dest, cc);
 
 /**
+ * Values at the 7 bit points of a grid (ascending, from 0 to 127) at every 7 bit value, linear in between.
+ */
+export function gridValues(grid: readonly number[], at: readonly number[]) {
+    const out = new Float64Array(128);
+    for (let x = 0; x < 128; x++) {
+        let j = 0;
+        while (j < grid.length - 2 && grid[j + 1] <= x) j++;
+        out[x] = at[j] + ((at[j + 1] - at[j]) * (x - grid[j])) / (grid[j + 1] - grid[j]);
+    }
+    return out;
+}
+
+/**
  * A controller as a unipolar amount source through a custom curve: values[x] (0 to 1) at every 7 bit value.
  */
 export function ccScale(cc: number, values: ArrayLike<number>): BankSource {
