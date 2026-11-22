@@ -114,8 +114,10 @@ const save = (name: string, data: ArrayBuffer) => {
         over++;
     }
 };
-// one creation date for every bank of this conversion
-const creationDate = new Date();
+// one creation date for every bank of this conversion: now, or SOURCE_DATE_EPOCH (seconds) for a build that has to
+// write the same bytes again
+const epoch = process.env.SOURCE_DATE_EPOCH;
+const creationDate = epoch ? new Date(Number(epoch) * 1000) : new Date();
 const bank = writeBank(result.bank, result.audio, { log, creationDate });
 save(`${stem}.sf4`, bank);
 times.write = (performance.now() - t) / 1000;

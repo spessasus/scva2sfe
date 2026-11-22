@@ -5,6 +5,10 @@ updates:
       schedule:
           interval: "monthly"
       open-pull-requests-limit: 5
+      # the banks follow the SFe 4.0 rules of core 4.x, a new major version is a decision, not an update
+      ignore:
+          - dependency-name: "spessasynth_core"
+            update-types: ["version-update:semver-major"]
     - package-ecosystem: "github-actions"
       directory: "/"
       schedule:

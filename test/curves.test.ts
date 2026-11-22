@@ -8,16 +8,16 @@ import { ccCurve, ccScale, gridValues, sourceX } from "../src/lib/curves.js";
 import { shareCurves, simplify } from "../src/lib/convert.js";
 import type { PackedModulator } from "../src/lib/zones.js";
 
-// y of a point list at a source value, as core interpolates it
+// y of a point list at a source value, as core's CustomCurve.getY reads it: the last point at or before x (at a
+// vertical step the last one wins), the first y below the first point, the last y after the last
 const yAt = (points: [number, number][], x: number) => {
-    for (let i = 1; i < points.length; i++) {
-        if (points[i][0] >= x) {
-            const [x0, y0] = points[i - 1];
-            const [x1, y1] = points[i];
-            return x1 === x0 ? y1 : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
-        }
-    }
-    return points[points.length - 1][1];
+    let i = -1;
+    while (i < points.length - 1 && points[i + 1][0] <= x) i++;
+    if (i < 0) return points[0][1];
+    if (i === points.length - 1) return points[i][1];
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
 };
 
 // a steep curve, 0 at 64, the shape the CC71 and CC75 curves take

@@ -98,13 +98,14 @@ tone in the DLL ("Close HiHat2").
 This writes `scva-v7.sf4` (exact 16-bit samples, every map on its bank LSB and SC-55 on LSB 0), with `--vorbis` also
 `scva-v7-vorbis.sf4`, with `--maps` one bank per map: `scva-v7-55.sf4`, `scva-v7-88.sf4`, `scva-v7-88pro.sf4` and
 `scva-v7-8820.sf4`, each with its map on bank LSB 0 and the GM2 kits, and with `--full-maps` the three full banks with
-SC-88, SC-88Pro or SC-8820 on LSB 0. Two conversions of the same DLL write the same bytes. Every bank stays under
-205,000,000 bytes: a file over that cap is still written, but the run reports it and exits with an error.
+SC-88, SC-88Pro or SC-8820 on LSB 0. Two conversions of the same DLL write the same bytes apart from the creation
+date in the bank's info (the conversion's time, or `SOURCE_DATE_EPOCH` in seconds when set). Every bank stays under
+300,000,000 bytes: a file over that cap is still written, but the run reports it and exits with an error.
 
 The first conversion takes about 4 to 7 minutes on 16 threads, longer on fewer cores: most of it fits every zone's
 envelopes and filter to the engine's curves. The results go into the solve cache on your machine (about 35 MB, keyed
 on the DLL's hash, the converter's build and the Node.js JavaScript engine's version), so a later conversion takes
-about 30 s for the main bank and about 80 s for all nine files, and writes the same bytes. The cache only ever holds
+about 30 s for the main bank and about 80 s for all nine files, and writes the same banks. The cache only ever holds
 what your own DLL gave, and a new converter build replaces it. The cache is optional: if it cannot be written, the
 conversion says so and goes on without it.
 
@@ -113,7 +114,7 @@ conversion says so and goes on without it.
 `web/` is the same converter as a static page ("Sound Canvas VA to SFe converter"): pick `SCCore.dll` and the
 optional `.drk` files, choose the banks and download them. Everything runs in the browser, the files are never
 uploaded. The zones run on Web Workers (one per thread, at most 16, about 350 MB each, fewer can be set on the page),
-the solve cache sits in the browser's IndexedDB (the page can clear it), and a conversion writes the same bytes
+the solve cache sits in the browser's IndexedDB (the page can clear it), and a conversion writes the same banks
 whatever the number of workers and whether the cache was used. In Firefox on 16 threads the first conversion takes
 about 5 minutes and a cached one about 25 s for the main bank and about 60 s for all eight. Firefox then holds about
 7 GB during the zones and up to about 10 GB once all eight banks are written, since every finished bank stays in

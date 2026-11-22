@@ -36,7 +36,8 @@ export type VorbisEncoder = (data: Float32Array, sampleRate: number) => Promise<
 export interface WriteOptions {
     log?: (line: string) => void;
     /**
-     * The bank's creation date (default now). The hosts pass one date for every bank of a conversion.
+     * The bank's creation date (default a fixed one, so that the lab's builds stay byte for byte comparable). The CLI
+     * and the page pass the conversion's time, one date for every bank of a conversion.
      */
     creationDate?: Date;
 }
@@ -113,7 +114,7 @@ export function buildSoundBank(bank: Bank, audio: Record<string, Float32Array>, 
     soundBank.soundBankInfo.engineer = "Spessasus";
     soundBank.soundBankInfo.copyright = "Roland Corporation";
     soundBank.soundBankInfo.comment = "Generated with scva2sfe (https://github.com/spessasus/scva2sfe). Do not distribute.";
-    soundBank.soundBankInfo.creationDate = options.creationDate ?? new Date();
+    soundBank.soundBankInfo.creationDate = options.creationDate ?? new Date(Date.UTC(2026, 0, 1));
 
     /**
      * The engine's interpolation lowpass on a sample (a zero phase FIR). Inside the loop the
@@ -263,6 +264,8 @@ export function buildSoundBank(bank: Bank, audio: Record<string, Float32Array>, 
         const destination = generatorType(m.dest);
         if (destination === undefined) throw new Error(`unknown modulator destination ${m.dest}`);
         const secondary = m.secondary ? modulatorSource(m.secondary) : new ModulatorSource();
+        // the file stores the amount as 16 bits, a larger one would wrap silently
+        if (!Number.isInteger(m.amount) || m.amount < -32768 || m.amount > 32767) throw new Error(`modulator amount ${m.amount} does not fit in 16 bits`);
         return new Modulator(modulatorSource(m), secondary, destination, m.amount, 0);
     }
 

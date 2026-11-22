@@ -1,74 +1,60 @@
 /**
  * The invariants of a converted bank, read back through spessasynth_core. Skipped without SCVA_TEST_BANK (the path of
- * a bank the converter wrote): a conversion needs SCCore.dll, which CI does not have.
+ * a bank the converter wrote): a conversion needs SCCore.dll, which CI does not have. The writer itself refuses
+ * amounts over 16 bits and core's loader refuses curve points out of range, so those need no test here.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import type { BasicZone, Modulator, ModulatorSource } from "spessasynth_core";
-import { CustomCurve, GeneratorTypes, SoundBankLoader } from "spessasynth_core";
+import type { BasicInstrument, BasicZone, Modulator, ModulatorSource } from "spessasynth_core";
+import { GeneratorTypes, SoundBankLoader } from "spessasynth_core";
 
 const path = process.env.SCVA_TEST_BANK;
 const skip = path ? false : "set SCVA_TEST_BANK to a converted bank";
-const bank = path ? SoundBankLoader.fromArrayBuffer(fs.readFileSync(path).buffer as ArrayBuffer) : undefined;
+// a copy: a small file's Buffer is a view into a larger shared pool
+const bank = path ? SoundBankLoader.fromArrayBuffer(new Uint8Array(fs.readFileSync(path)).buffer) : undefined;
 
-// every zone with its global zone's modulators, the way core merges them
+// every zone with its instrument and its global zone's modulators, the way core merges them
 const zones = () => {
-    const out = new Array<{ name: string; zone: BasicZone; mods: Modulator[] }>();
+    const out = new Array<{ instrument: BasicInstrument; zone: BasicZone; mods: Modulator[] }>();
     for (const instrument of bank!.instruments) {
-        for (const zone of instrument.zones) out.push({ name: instrument.name, zone, mods: [...instrument.globalZone.modulators, ...zone.modulators] });
+        for (const zone of instrument.zones) out.push({ instrument, zone, mods: [...instrument.globalZone.modulators, ...zone.modulators] });
     }
     return out;
 };
 
-// a custom curve's y at a source value, as core interpolates it
-const yAt = (source: ModulatorSource, x: number) => {
-    const curve = source.curve;
-    if (!(curve instanceof CustomCurve)) return undefined;
-    const p = curve.points;
-    for (let i = 1; i < p.length; i++) {
-        if (p[i].x >= x) return p[i].x === p[i - 1].x ? p[i].y : p[i - 1].y + ((p[i].y - p[i - 1].y) * (x - p[i - 1].x)) / (p[i].x - p[i - 1].x);
-    }
-    return p[p.length - 1].y;
+// a source's output at a controller value, through core's own curve code (evaluate is protected in the types only)
+const output = (source: ModulatorSource, cc: number) => {
+    const curve = source.curve as unknown as { evaluate(value: number, isBipolar: boolean): number };
+    const x = (cc * 128) / 16384;
+    return curve.evaluate(source.isNegative ? 1 - x : x, source.isBipolar);
 };
 
 test("every controller curve is 0 at 64", { skip }, () => {
     const off = new Set<string>();
-    for (const { name, mods } of zones()) {
+    for (const { instrument, mods } of zones()) {
         for (const m of mods) {
             if (!m.primarySource.isCC || !m.primarySource.isBipolar) continue;
-            const y = yAt(m.primarySource, 8192);
-            if (y !== undefined && y !== 8192) off.add(`${name}: CC${m.primarySource.index} -> ${m.destination} (${y})`);
+            const y = output(m.primarySource, 64);
+            if (y !== 0) off.add(`${instrument.name}: CC${m.primarySource.index} -> ${m.destination} (${y})`);
         }
     }
     assert.deepEqual([...off].slice(0, 10), []);
 });
 
-test("every modulator amount fits in 16 bits", { skip }, () => {
-    for (const { name, mods } of zones()) {
-        for (const m of mods) assert.ok(m.transformAmount >= -32768 && m.transformAmount <= 32767, `${name}: ${m.transformAmount}`);
-    }
-});
-
 test("an attack without fade in stays so at default controllers", { skip }, () => {
-    for (const { name, zone, mods } of zones()) {
-        if (zone.getGenerator(GeneratorTypes.attackVolEnv, 0) !== -32768) continue;
+    let checked = 0;
+    for (const { instrument, zone, mods } of zones()) {
+        const attack = zone.getGenerator(GeneratorTypes.attackVolEnv, instrument.globalZone.getGenerator(GeneratorTypes.attackVolEnv, 0));
+        if (attack !== -32768) continue;
         for (const m of mods) {
             if (m.destination !== GeneratorTypes.attackVolEnv || m.transformAmount === 0) continue;
-            // a key or velocity curve on it must be gated by a controller that is off at 64
-            const gated = m.primarySource.isCC || m.secondarySource.isCC;
-            assert.ok(gated, `${name}: an ungated attack modulator on an instant attack`);
-            if (!m.primarySource.isCC) assert.equal(yAt(m.secondarySource, 8192), 0, `${name}: the gate is open at 64`);
+            checked++;
+            // a key or velocity curve on it must be gated by a controller whose output is 0 at 64
+            const gate = m.primarySource.isCC ? m.primarySource : m.secondarySource;
+            assert.ok(gate.isCC, `${instrument.name}: an ungated attack modulator on an instant attack`);
+            assert.equal(output(gate, 64), 0, `${instrument.name}: CC${gate.index} opens the attack at 64`);
         }
     }
-});
-
-test("every amount curve stays within 0 to 1", { skip }, () => {
-    for (const { name, mods } of zones()) {
-        for (const m of mods) {
-            const c = m.secondarySource.curve;
-            if (!(c instanceof CustomCurve) || m.secondarySource.isBipolar) continue;
-            for (const p of c.points) assert.ok(p.y >= 0 && p.y <= 16384, `${name}: ${p.y}`);
-        }
-    }
+    console.log(`attack modulators on instant attacks: ${checked}`);
 });
