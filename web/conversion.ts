@@ -97,7 +97,7 @@ async function run(req: ConvertRequest, send: (m: ConversionMessage) => void) {
     const save = async (suffix: string, data: ArrayBuffer) => {
         const name = `${__STEM__}${suffix}.sf4`;
         const sha256 = await sha256Hex(new Uint8Array(data));
-        send({ type: "file", name, blob: new Blob([data], { type: "application/octet-stream" }), sha256, over: data.byteLength > BANK_CAP });
+        send({ type: "file", name, blob: new Blob([data], { type: "application/octet-stream" }), sha256, over: data.byteLength > BANK_CAP, cap: BANK_CAP });
         send({ type: "stage", id: `write${suffix}`, state: "done" });
         log(`Wrote ${name}: ${data.byteLength} bytes`);
     };

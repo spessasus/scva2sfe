@@ -254,8 +254,7 @@ $("convert").addEventListener("click", async () => {
             a.textContent = `Download ${m.name}`;
             const meta = document.createElement("span");
             meta.className = "download_meta";
-            // BANK_CAP in src/lib/writer.ts (not imported: it would pull the writer into the page)
-            meta.textContent = `${mb(m.blob.size)}, sha256 ${m.sha256}${m.over ? ", over the 300 MB cap" : ""}`;
+            meta.textContent = `${mb(m.blob.size)}, sha256 ${m.sha256}${m.over ? `, over the ${m.cap / 1e6} MB cap` : ""}`;
             li.append(a, meta);
             $("downloads").append(li);
             $("downloads_group").hidden = false;

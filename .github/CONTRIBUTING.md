@@ -22,7 +22,8 @@ For a change, please:
 
 - Run the converter with it (`npm run convert:dev -- input/SCCore.dll --out out`) and check the banks still load and
   play.
-- Check determinism: two conversions write the same bytes (compare the files, for example with `sha256sum`).
+- Check determinism: two conversions with the same `SOURCE_DATE_EPOCH` write the same bytes (compare the files, for
+  example with `sha256sum`). Without it every bank carries the conversion's time.
 - Describe the audible effect in the pull request: which tones or kits change, and how they sound before and after.
 - Run `npm run build` (type check) before opening the pull request.
 

@@ -15,5 +15,5 @@ _Describe the proposed changes and explain why you made them here._
 - [ ] I agree that the submitted changes become part of scva2sfe under its current or any future license.
 - [ ] Changes are fully implemented.
 - [ ] I confirm that I implemented the changes without any AI agents signing off any commits.
-- [ ] I built a bank with the changes, checked that two conversions write the same bytes and described the audible
-      effect above.
+- [ ] I built a bank with the changes, checked that two conversions write the same bytes (with `SOURCE_DATE_EPOCH`
+      set) and described the audible effect above.

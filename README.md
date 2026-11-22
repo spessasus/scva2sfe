@@ -105,23 +105,23 @@ date in the bank's info (the conversion's time, or `SOURCE_DATE_EPOCH` in second
 The first conversion takes about 4 to 7 minutes on 16 threads, longer on fewer cores: most of it fits every zone's
 envelopes and filter to the engine's curves. The results go into the solve cache on your machine (about 35 MB, keyed
 on the DLL's hash, the converter's build and the Node.js JavaScript engine's version), so a later conversion takes
-about 30 s for the main bank and about 80 s for all nine files, and writes the same banks. The cache only ever holds
+about 30 s for the main bank and about 80 s for all nine files, with the same result. The cache only ever holds
 what your own DLL gave, and a new converter build replaces it. The cache is optional: if it cannot be written, the
 conversion says so and goes on without it.
 
 ## In the browser
 
-`web/` is the same converter as a static page ("Sound Canvas VA to SFe converter"): pick `SCCore.dll` and the
-optional `.drk` files, choose the banks and download them. Everything runs in the browser, the files are never
-uploaded. The zones run on Web Workers (one per thread, at most 16, about 350 MB each, fewer can be set on the page),
-the solve cache sits in the browser's IndexedDB (the page can clear it), and a conversion writes the same banks
-whatever the number of workers and whether the cache was used. In Firefox on 16 threads the first conversion takes
-about 5 minutes and a cached one about 25 s for the main bank and about 60 s for all eight. Firefox then holds about
-7 GB during the zones and up to about 10 GB once all eight banks are written, since every finished bank stays in
-memory until the page is closed. The fits take their numbers from the JavaScript engine's Math functions, so the bytes can only
+`web/` is the same converter as a static page ("Sound Canvas VA to SFe converter"): pick `SCCore.dll` and the optional
+`.drk` files, choose the banks and download them. Everything runs in the browser, the files are never uploaded. The
+zones run on Web Workers (one per thread, at most 16, about 350 MB each, fewer can be set on the page), the solve cache
+sits in the browser's IndexedDB (the page can clear it), and a conversion gives the same banks (apart from the creation
+date) whatever the number of workers and whether the cache was used. In Firefox on 16 threads the first conversion takes
+about 5 minutes and a cached one about 25 s for the main bank and about 60 s for all eight. Firefox then holds about 7
+GB during the zones and up to about 10 GB once all eight banks are written, since every finished bank stays in memory
+until the page is closed. The fits take their numbers from the JavaScript engine's Math functions, so the bytes can only
 match the command line's on the same engine as Node.js (V8, in Chrome and Edge). Firefox rounds `Math.sin`, `Math.cos`,
-`Math.log10` and `Math.hypot` differently in the last bit, so its banks differ slightly from the command line's. The
-Ogg Vorbis bank is not offered there: browsers have no Vorbis encoder that writes the same bank.
+`Math.log10` and `Math.hypot` differently in the last bit, so its banks differ slightly from the command line's. The Ogg
+Vorbis bank is not offered there: browsers have no Vorbis encoder that writes the same bank.
 
 ```sh
 npm run build:wasm

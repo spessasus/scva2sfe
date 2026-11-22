@@ -289,6 +289,8 @@ export function filterCcModulators(tvf: TvfModel, maps: FilterMaps, v: TvfVoice,
         if (off < 0.02) return m;
         // the amount is a 16 bit number: past it the scale stops at the top (ccScale clips at 1)
         const amount = Math.min(32767, Math.round(m.amount * top));
+        // CC74 takes the curve away entirely at every grid point: nothing to scale
+        if (amount === 0) return m;
         const unit = amount / m.amount;
         m.amount = amount;
         m.secondary = ccScale(74, full.map((y) => y / unit));

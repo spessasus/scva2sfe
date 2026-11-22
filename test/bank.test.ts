@@ -44,12 +44,19 @@ const output = (source: ModulatorSource, cc: number) => {
 // and amount curves (the CC74 scale carries 1 / the amount's growth at 64, a timed gate 0, see the attack test)
 test("every controller curve is 0 at 64", { skip }, () => {
     const off = new Set<string>();
-    for (const { instrument, mods } of zones()) {
+    // the instrument zones, the preset zones and the bank's default modulators
+    const lists = new Array<{ name: string; mods: readonly Modulator[] }>();
+    for (const { instrument, mods } of zones()) lists.push({ name: instrument.name, mods });
+    for (const preset of bank!.presets) {
+        for (const zone of [preset.globalZone, ...preset.zones]) lists.push({ name: preset.name, mods: zone.modulators });
+    }
+    lists.push({ name: "DMOD", mods: bank!.defaultModulators });
+    for (const { name, mods } of lists) {
         for (const m of mods) {
             for (const source of [m.primarySource, m.secondarySource]) {
                 if (!source.isCC || !source.isBipolar) continue;
                 const y = output(source, 64);
-                if (y !== 0) off.add(`${instrument.name}: CC${source.index} -> ${m.destination} (${y})`);
+                if (y !== 0) off.add(`${name}: CC${source.index} -> ${m.destination} (${y})`);
             }
         }
     }

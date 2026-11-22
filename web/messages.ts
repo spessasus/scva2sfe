@@ -35,6 +35,6 @@ export type ConversionMessage =
     | { type: "stage"; id: string; state: StageState }
     | { type: "progress"; id: string; done: number; total: number }
     | { type: "log"; line: string }
-    | { type: "file"; name: string; blob: Blob; sha256: string; over: boolean }
+    | { type: "file"; name: string; blob: Blob; sha256: string; over: boolean; cap: number }
     | { type: "done"; times: Record<string, number> }
     | { type: "error"; message: string };

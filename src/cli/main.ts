@@ -51,7 +51,8 @@ const cacheDir = option("--cache-dir") ?? defaultCacheDir();
 const unknown = args.find((a) => a.startsWith("-"));
 if (unknown) fail(`unknown option ${unknown}`);
 const epoch = process.env.SOURCE_DATE_EPOCH?.trim();
-if (epoch && !/^\d+$/.test(epoch)) fail(`SOURCE_DATE_EPOCH takes whole seconds since 1970, not ${epoch}`);
+const epochDate = epoch ? new Date(Number(epoch) * 1000) : undefined;
+if (epoch && (!/^\d+$/.test(epoch) || Number.isNaN(epochDate!.getTime()))) fail(`SOURCE_DATE_EPOCH takes whole seconds since 1970, not ${epoch}`);
 if (args.length !== 1) fail(args.length ? `one DLL only, got ${args.join(" ")}` : "no SCCore.dll given");
 const [dllPath] = args;
 const log = (line: string) => console.log(line);
@@ -118,7 +119,7 @@ const save = (name: string, data: ArrayBuffer) => {
 };
 // one creation date for every bank of this conversion: now, or SOURCE_DATE_EPOCH (seconds) for a build that has to
 // write the same bytes again
-const creationDate = epoch ? new Date(Number(epoch) * 1000) : new Date();
+const creationDate = epochDate ?? new Date();
 const bank = writeBank(result.bank, result.audio, { log, creationDate });
 save(`${stem}.sf4`, bank);
 times.write = (performance.now() - t) / 1000;
