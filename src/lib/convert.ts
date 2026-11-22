@@ -468,7 +468,7 @@ type Preset = Bank["presets"][number] & { tone?: number };
 function presetsOf(dir: Directory, maps: Map<string, MapPresets>, defaultMap: string, toneInstruments: Map<string, number>, keyInstruments: Map<string, number>) {
     const presets = new Array<Preset>();
     const tag = (name: string, m: string) => (m in MAP_TAGS ? `${name} [${MAP_TAGS[m as MapName]}]` : name);
-    const toneZones = (tone: number) => [0, 1].filter((s) => toneInstruments.has(`${tone}:${s}`)).map((s) => ({ instrument: toneInstruments.get(`${tone}:${s}`)! }));
+    const toneZones = (tone: number) => Array.from({ length: dir.partialCount(tone) }, (_, s) => s).filter((s) => toneInstruments.has(`${tone}:${s}`)).map((s) => ({ instrument: toneInstruments.get(`${tone}:${s}`)! }));
     for (const [name, m] of maps) {
         const lsbs = m.map === undefined ? [] : [m.map, ...(name === defaultMap ? [0] : [])];
         const single = SINGLE_ASSIGN.has(name) ? 1 : 0;

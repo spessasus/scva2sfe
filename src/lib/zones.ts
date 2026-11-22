@@ -186,7 +186,7 @@ export function waveInfo(dll: Dll, dir: Directory, tvf: TvfModel, interp: number
 export function wavesOf(dir: Directory, jobs: Job[]) {
     const waves = new Set<number>();
     const add = (tone: number, keys: number[]) => {
-        for (let slot = 0; slot < 2; slot++) {
+        for (let slot = 0; slot < dir.partialCount(tone); slot++) {
             const b = dir.partial(tone, slot);
             if (!b) continue;
             for (const k of keys) {
@@ -257,7 +257,7 @@ export class ZoneBuilder {
         if (job.kind === "tone") {
             const header = dir.toneHeader(job.tone);
             const name = dir.toneName(job.tone);
-            for (let slot = 0; slot < 2; slot++) {
+            for (let slot = 0; slot < dir.partialCount(job.tone); slot++) {
                 const b = dir.partial(job.tone, slot);
                 if (!b) continue;
                 // a tone that starts one of its partials at random (header 0x22 = 1) keeps the first: core has no
@@ -272,7 +272,7 @@ export class ZoneBuilder {
             const header = dir.toneHeader(key.tone);
             const zones = new Array<RawZone>();
             const exclusive = key.group || (job.single ? 128 + job.note : 0);
-            for (let slot = 0; slot < 2; slot++) {
+            for (let slot = 0; slot < dir.partialCount(key.tone); slot++) {
                 const b = dir.partial(key.tone, slot);
                 if (!b) continue;
                 if (header[0x22] === 1 && slot > 0 && dir.partial(key.tone, 0)) continue;

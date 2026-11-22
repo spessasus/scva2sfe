@@ -31,6 +31,12 @@ const INDIRECT65 = 0x19a8800;
 const DRUM_PROG_MAP = 0x19f1eb0;
 const DRUM_KIT_INDEX = 0x19f21b0;
 const DRUM_KITS = 0x18ad950;
+/**
+ * The second tone table (tone numbers 0x4000 up): records of four partials, the table's header right after them
+ * holds the partial count.
+ */
+const WIDE_TONES = fileOffset(0x181a00c30);
+const WIDE_TONE_INFO = fileOffset(0x181a01000);
 const VEL_XFADE = 0x1a00020;
 const KF_SLOPE = fileOffset(0x1800935c0);
 
@@ -41,8 +47,14 @@ const MULTISAMPLE_STRIDE = 0x8c;
 const WAVEDESC_STRIDE = 0x16;
 const ALTERNATE_STRIDE = 0x18;
 const KIT_STRIDE = 0x50c;
+const WIDE_TONE_STRIDE = 0x1e8;
+const WIDE_TONE_COUNT = (WIDE_TONE_INFO - WIDE_TONES) / WIDE_TONE_STRIDE;
+/**
+ * A wide tone's partials start after its header and a 96 bit partial mask (bit 31 of each word down is partial 0 up).
+ */
+const WIDE_TONE_PARTIALS = 0x30;
 const UNASSIGNED = 0xffff;
-const DRUM_TABLE_SPACE = 0x4000;
+const WIDE_TONE_SPACE = 0x4000;
 const ALTERNATE_SPACE = 0x6000;
 const INDIRECT_ONLY = 0x8000;
 
@@ -107,7 +119,15 @@ export class Directory {
     }
 
     public toneRecord(n: number) {
+        if (n >= WIDE_TONE_SPACE) return this.dll.slice(WIDE_TONES + (n - WIDE_TONE_SPACE) * WIDE_TONE_STRIDE, WIDE_TONE_STRIDE);
         return this.dll.slice(TONES + n * TONE_STRIDE, TONE_STRIDE);
+    }
+
+    /**
+     * The partial slots of a tone: 2, or the second table's count for tone numbers 0x4000 up.
+     */
+    public partialCount(n: number) {
+        return n >= WIDE_TONE_SPACE ? this.dll.u16(WIDE_TONE_INFO + 2) : 2;
     }
 
     public toneName(n: number) {
@@ -122,7 +142,16 @@ export class Directory {
      * A partial's 0x6e bytes, undefined for an empty slot.
      */
     public partial(n: number, slot: number) {
-        const b = this.toneRecord(n).subarray(TONE_HEADER + slot * PARTIAL_STRIDE, TONE_HEADER + (slot + 1) * PARTIAL_STRIDE);
+        const r = this.toneRecord(n);
+        let start = TONE_HEADER;
+        if (n >= WIDE_TONE_SPACE) {
+            // the wide tones switch partials by their mask (little endian words, tone_lookup), the melodic header's
+            // 0x16 byte is 0 there
+            const byte = TONE_HEADER + 4 * (slot >> 5) + 3 - ((slot & 31) >> 3);
+            if ((r[byte] & (0x80 >> (slot & 7))) === 0) return undefined;
+            start = WIDE_TONE_PARTIALS;
+        }
+        const b = r.subarray(start + slot * PARTIAL_STRIDE, start + (slot + 1) * PARTIAL_STRIDE);
         return readU16(b, 2) === 0xffff ? undefined : b;
     }
 
@@ -255,8 +284,8 @@ export class Directory {
     public programTone(program: number, map: number, bank: number, resolved = true) {
         const raw = resolved ? this.lut3Resolved(program, map, bank) : this.lut3Raw(program, map, bank);
         if (raw === undefined || raw === UNASSIGNED || raw >= INDIRECT_ONLY) return -1;
-        // 0x4000..0x5fff point into the drum table (two SC-8820 presets built like kits, not decoded)
-        if (raw >= DRUM_TABLE_SPACE && raw < ALTERNATE_SPACE) return -1;
+        // 0x4000..0x5fff point into the second tone table (TeeBee and Jazz Scat of SC-8820, four partials each)
+        if (raw >= WIDE_TONE_SPACE + WIDE_TONE_COUNT && raw < ALTERNATE_SPACE) return -1;
         if (raw < ALTERNATE_SPACE) return raw;
         const r = this.dll.slice(LAYERED + (raw - ALTERNATE_SPACE) * ALTERNATE_STRIDE, ALTERNATE_STRIDE);
         return this.dereference(r[0x10], r[0x11], r[0x12]);

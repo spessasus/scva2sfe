@@ -109,7 +109,7 @@ export abstract class Pool implements ZoneRunner {
         // zone per partial counts once for the group
         const zonesOf = (tone: number) => {
             let n = 0;
-            for (let slot = 0; slot < 2; slot++) {
+            for (let slot = 0; slot < dir.partialCount(tone); slot++) {
                 const b = dir.partial(tone, slot);
                 if (!b) continue;
                 let last: string | undefined;
