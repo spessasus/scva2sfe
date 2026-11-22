@@ -37,7 +37,8 @@ export interface WriteOptions {
     log?: (line: string) => void;
     /**
      * The bank's creation date (default a fixed one, so that the lab's builds stay byte for byte comparable). The CLI
-     * and the page pass the conversion's time, one date for every bank of a conversion.
+     * passes SOURCE_DATE_EPOCH when set and the conversion's time otherwise, the page the conversion's time, one date
+     * for every bank of a conversion.
      */
     creationDate?: Date;
 }

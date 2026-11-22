@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import type { BasicInstrument, BasicSoundBank, BasicZone, ModulatorSource } from "spessasynth_core";
 import { GeneratorTypes, Modulator, SoundBankLoader } from "spessasynth_core";
+import { sourceX } from "../src/lib/curves.js";
 
 const path = process.env.SCVA_TEST_BANK;
 const skip = path ? false : "set SCVA_TEST_BANK to a converted bank";
@@ -35,7 +36,7 @@ const zones = () => {
 // a source's output at a controller value, through core's own curve code (evaluate is protected in the types only)
 const output = (source: ModulatorSource, cc: number) => {
     const curve = source.curve as unknown as { evaluate(value: number, isBipolar: boolean): number };
-    const x = (cc * 128) / 16384;
+    const x = sourceX(cc) / 16384;
     return curve.evaluate(source.isNegative ? 1 - x : x, source.isBipolar);
 };
 
