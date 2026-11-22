@@ -59,6 +59,10 @@ jobs:
               working-directory: scva2sfe
               run: npm run build
 
+            - name: Tests
+              working-directory: scva2sfe
+              run: npm test
+
             - name: Compiled converter
               working-directory: scva2sfe
               run: npm run build:dist

@@ -8,7 +8,8 @@
     "build:web": "node tools/build-web.mjs",
     "serve:web": "node tools/serve-web.mjs",
     "convert": "node bin/scva2sfe.mjs",
-    "convert:dev": "tsx src/cli/main.ts"
+    "convert:dev": "tsx src/cli/main.ts",
+    "test": "node --test --import tsx test/"
   },
   "type": "module",
   "private": true,

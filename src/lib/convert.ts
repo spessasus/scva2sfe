@@ -696,7 +696,7 @@ class ShapeIndex {
  * 7 bit value (Douglas-Peucker on the 128 values, along x as core interpolates). pin keeps value 64 as well (a
  * controller's default).
  */
-function simplify(ys: Uint16Array, eps: number, pin = false): [number, number][] {
+export function simplify(ys: Uint16Array, eps: number, pin = false): [number, number][] {
     const keep = new Uint8Array(128);
     keep[0] = keep[127] = 1;
     if (pin) keep[64] = 1;
@@ -745,7 +745,7 @@ function curveTolerance(dest: string) {
  * plays goes (undefined). Candidates are found through a quantized shape (cells no wider than the tolerance, two offsets), the
  * largest amounts first. Deterministic.
  */
-function shareCurves(mods: PackedModulator[], domain: number[][]) {
+export function shareCurves(mods: PackedModulator[], domain: number[][]) {
     const out: (PackedModulator | undefined)[] = mods.slice();
     const order = mods.map((_, i) => i).filter((i) => mods[i].ys).sort((a, b) => Math.abs(mods[b].amount) - Math.abs(mods[a].amount) || a - b);
     const LEVELS = 14;

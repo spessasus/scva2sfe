@@ -11,6 +11,7 @@
 !/tsconfig.dist.json
 !/.github/
 !/src/
+!/test/
 !/tools/
 !/web/
 !/bin/
