@@ -1,7 +1,7 @@
 /**
  * SFe custom curve modulators that carry an engine value exactly at every 7 bit source value.
  */
-import type { BankModulator } from "./bank.js";
+import type { BankModulator, BankSource } from "./bank.js";
 
 /**
  * The source value (0 to 16384) a 7 bit value reaches, SFe 4.0 7.2 "center-max": 128 * v up to 64, above it the
@@ -33,6 +33,15 @@ export function curveModulator(source: "velocity" | "key" | "cc", values: ArrayL
  * default, so a curve drawn from the engine's answer against 64 stays put there).
  */
 export const ccCurve = (cc: number, values: ArrayLike<number>, dest: string) => curveModulator("cc", values, dest, cc);
+
+/**
+ * A controller as a unipolar amount source through a custom curve: values[x] (0 to 1) at every 7 bit value.
+ */
+export function ccScale(cc: number, values: ArrayLike<number>): BankSource {
+    const points = new Array<[number, number]>();
+    for (let x = 0; x < 128; x++) points.push([sourceX(x), Math.round(16384 * Math.min(1, Math.max(0, values[x])))]);
+    return { source: "cc", cc, curve: "custom", points, negative: false, bipolar: false };
+}
 
 /**
  * A modulator of a standard curve, for the zero amount copies that switch off a default modulator of the same

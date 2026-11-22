@@ -142,6 +142,10 @@ export class Baker {
         const keepAttack = r.attack !== undefined;
         const mods = z.mods.filter((i) => {
             const m = this.mods[i];
+            // the filter's controller level curves go with the filter (gain itself stays, it holds the zone's level),
+            // the live filter's on gain and a sample baked filter's on initialAttenuation
+            const level = m.dest === "gain" || m.dest === "initialAttenuation";
+            if (e.tap === "out" && level && m.source === "cc" && (m.cc === 71 || m.cc === 74) && m.amount !== 0) return false;
             return !drop.has(m.dest) || (keepAttack && (m.dest === "delayVolEnv" || m.dest === "attackVolEnv")) || m.amount === 0;
         });
         // the zone's level: the render's part level stage and dry sends over core's, the live filter's level terms

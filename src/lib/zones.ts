@@ -6,7 +6,7 @@
  */
 import type { BankModulator } from "./bank.js";
 import { pow } from "./math.js";
-import { bakedFilterModulators, centsPerCutoffUnit, envelopeModulators, filterCcModulators, filterDefaultsOff } from "./controllers.js";
+import { bakedFilterModulators, centsPerCutoffUnit, envelopeModulators, filterCcModulators, filterDefaultsOff, tvfReleaseModulators } from "./controllers.js";
 import { curveModulator, sourceX } from "./curves.js";
 import type { Directory, KitKey } from "./directory.js";
 import type { Dll } from "./dll.js";
@@ -475,11 +475,15 @@ export class ZoneBuilder {
             const m = curveModulator("key", p, "pan");
             if (m) mods.push(m);
         }
-        if (!keyOff && !drum) mods.push(...envelopeModulators(tva, b, gens));
+        if (!keyOff) mods.push(...envelopeModulators(tva, b, gens, { key: refKey, velocity: refVel, keyLo, keyHi, velLo: vlo, velHi: vhi }, drum));
+        // the TVF release follows CC72 like the TVA's, where the cutoff moves (drum keys ignore CC72)
+        if (!keyOff && !drum && liveFilter && gens.modEnvToFilterFc !== undefined) {
+            mods.push(...tvfReleaseModulators(tva, b, gens));
+        }
         // a drum part's cutoff and resonance NRPNs move its kit keys' filters the same way
         if (!keyOff && liveFilter) {
             const fv = tvf.voice(header, b, tf.refKey, tf.refVel);
-            mods.push(...filterCcModulators(tvf, maps, fv, tf.f, fv.tap));
+            mods.push(...filterCcModulators(tvf, maps, fv, tf.f, fv.tap, tf.signed));
         } else if (!keyOff && tf?.bake && info.spectrum) {
             mods.push(...bakedFilterModulators(tvf, tvf.voice(header, b, refKey, refVel), tf.bake.tap as SvfTap, tf.bake.f, ratio, info.spectrum));
         } else {

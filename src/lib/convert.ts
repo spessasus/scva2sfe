@@ -325,13 +325,16 @@ export function assemble(dll: Dll, dir: Directory, maps: Map<string, MapPresets>
     for (const inst of instruments) for (const z of inst.zones) z.mods = [...new Set(z.mods.filter((i) => shared[i]).map((i) => remap[i]))];
     // each curve with as few points as its users' tolerances allow (core interpolates linearly between them)
     const epsOf = new Map<Uint16Array, number>();
+    // curves a controller uses keep the point at its default, so the default plays the zone as fitted
+    const pinned = new Set<Uint16Array>();
     for (const m of finalMods) {
         if (!m.ys) continue;
-        const e = (curveTolerance(m.dest) * 8192) / Math.max(Math.abs(m.amount), 1);
+        const e = m.source === "cc" ? 0 : (curveTolerance(m.dest) * 8192) / Math.max(Math.abs(m.amount), 1);
         epsOf.set(m.ys, Math.min(epsOf.get(m.ys) ?? Infinity, e));
+        if (m.source === "cc") pinned.add(m.ys);
     }
     const pointsOf = new Map<Uint16Array, [number, number][]>();
-    for (const [ys, e] of epsOf) pointsOf.set(ys, simplify(ys, Math.max(e * 0.5, 0.5)));
+    for (const [ys, e] of epsOf) pointsOf.set(ys, simplify(ys, Math.max(e * 0.5, 0.5), pinned.has(ys)));
     const modulators = finalMods.map((m) => {
         const { ys, ...rest } = m;
         return ys ? { ...rest, points: pointsOf.get(ys)! } : rest;
@@ -690,12 +693,14 @@ class ShapeIndex {
 
 /**
  * A curve's points (at sourceX of each value) reduced to those a linear interpolation needs to stay within eps of every
- * 7 bit value (Douglas-Peucker on the 128 values, along x as core interpolates).
+ * 7 bit value (Douglas-Peucker on the 128 values, along x as core interpolates). pin keeps value 64 as well (a
+ * controller's default).
  */
-function simplify(ys: Uint16Array, eps: number): [number, number][] {
+function simplify(ys: Uint16Array, eps: number, pin = false): [number, number][] {
     const keep = new Uint8Array(128);
     keep[0] = keep[127] = 1;
-    const stack: [number, number][] = [[0, 127]];
+    if (pin) keep[64] = 1;
+    const stack: [number, number][] = pin ? [[0, 64], [64, 127]] : [[0, 127]];
     while (stack.length) {
         const [a, b] = stack.pop()!;
         let worst = -1;
@@ -735,8 +740,8 @@ function curveTolerance(dest: string) {
 /**
  * Custom curves shared by shape: a curve's y values are its shape at full scale (the amount carries the size), so a
  * modulator takes an earlier curve where the two shapes differ by at most the destination's tolerance over its amount
- * at every value it plays at (its zones' keys or velocities, every value of a controller, and outside them the curve
- * holds its edge values). A key or velocity curve that moves its destination by less than the tolerance where it
+ * at every value it plays at (its zones' keys or velocities, outside them the curve holds its edge values). A
+ * controller curve is only shared where the shapes match exactly (written exactly, see below). A key or velocity curve that moves its destination by less than the tolerance where it
  * plays goes (undefined). Candidates are found through a quantized shape (cells no wider than the tolerance, two offsets), the
  * largest amounts first. Deterministic.
  */
@@ -784,7 +789,9 @@ function shareCurves(mods: PackedModulator[], domain: number[][]) {
             }
             ys = Uint16Array.from(ys, (_, x) => ys[Math.max(lo, Math.min(hi, x))]);
         }
-        const eps = (tol * 8192) / Math.max(Math.abs(m.amount), 1);
+        // controller curves are written exactly (core indexes curves with 32 bits, there is no count to save): a
+        // shared curve within the tolerance moved the zone wherever the controller sat, the default included
+        const eps = m.source === "cc" ? 0 : (tol * 8192) / Math.max(Math.abs(m.amount), 1);
         // the coarsest cell that still guarantees the tolerance
         const level = Math.min(LEVELS, Math.max(0, Math.ceil(Math.log2(8192 / eps))));
         // candidates from the cells at this level and a few coarser ones (checked point by point), the curve

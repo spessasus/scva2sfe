@@ -183,6 +183,10 @@ export interface TvfZone {
     f: number;
     q: number;
     /**
+     * The zone's lowpass came from the signed map (a filter that holds still), so its controller curves start there.
+     */
+    signed: boolean;
+    /**
      * The key and velocity the envelope was projected at.
      */
     refKey: number;
@@ -645,12 +649,13 @@ export function tvfZone(model: TvfModel, maps: FilterMaps, q: TvfZoneQuery) {
         if (x) mods.push(x);
     };
     const moving = fit.raw >= FILTER_FLAT;
+    // a lowpass that holds still takes the signed map (a Q under 0.707 too), its CC71 curves start there as well
+    const signed = !moving && tap === "low";
     let fast: ModEnvFit | undefined;
     let shape: (x: Float64Array) => Float64Array = (x) => new Float64Array(x.length);
     const off = (hold ?? points) * DT;
     if (!moving) {
-        // a filter that holds still takes the signed map (a Q under 0.707 too)
-        if (tap === "low") m = mapped(true);
+        if (signed) m = mapped(true);
         const stat = wmed(m.c, w);
         gens.initialFilterFc = Math.round(Math.min(stat, OPEN_CENTS));
     } else {
@@ -712,7 +717,6 @@ export function tvfZone(model: TvfModel, maps: FilterMaps, q: TvfZoneQuery) {
         // key follow and velocity: the cutoff curve at each key / velocity with the reference's times, fitted as
         // offset + scale * the reference's shape (weighted) on the points under the ceiling, plus the times' own
         // scaling
-        const signed = !moving && tap === "low";
         const e = shape(tt);
         // voices with the same levels and cutoff give the same curve (the velocity sensitivity row maps many
         // velocities to one value)
@@ -805,12 +809,11 @@ export function tvfZone(model: TvfModel, maps: FilterMaps, q: TvfZoneQuery) {
             if (q.b[0x4c] !== 0x40) timeCurve("velocity", vLo, q.velHi, (x) => vs(x)[1], [...late, ...(q.free ? [] : ["releaseModEnv"])]);
         }
     }
-    const zone: TvfZone = { gens, mods, gainCb, bake, rms: (fast ?? fit).rms, raw: fit.raw, curve: m.c, weights: w, f: fMed, q: qMed, refKey, refVel };
+    const zone: TvfZone = { gens, mods, gainCb, bake, rms: (fast ?? fit).rms, raw: fit.raw, curve: m.c, weights: w, f: fMed, q: qMed, signed, refKey, refVel };
     // the split check: the curves at the zone's edge keys, half way to them and at lower velocities against the
     // engine's curve there (control ticks, no render). Where they miss by more than SPLIT_CENTS over the reference's
     // own error and a projection of its own would do SPLIT_CENTS better, the zone plays better as two
     if (!bake && gens.initialFilterFc !== undefined && !q.noSplit && (q.keyHi > q.keyLo || q.velHi > vLo)) {
-        const signed = !moving && tap === "low";
         const errAt = (key: number, velocity: number, g: Record<string, number>) => {
             const c = tickCents(model, maps, model.voice(q.header, q.b, key, velocity), use, rt, signed);
             const r = ruleCents(g, tt, off);
