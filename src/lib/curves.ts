@@ -12,12 +12,12 @@ export const sourceX = (v: number) => (v <= 64 ? v * 128 : Math.round(8192 + (81
 /**
  * A bipolar custom curve modulator from a 7 bit source (velocity, key or a controller) whose output at value x is
  * values[x] in the destination's units: a point at every sourceX(x), y = 8192 + 8192 * values[x] / amount. Undefined
- * where every value rounds to nothing.
+ * where every value rounds to nothing. The amount stops at 32767 (16 bits in the file), values past it saturate.
  */
 export function curveModulator(source: "velocity" | "key" | "cc", values: ArrayLike<number>, dest: string, cc?: number) {
     let amount = 0;
     for (let x = 0; x < 128; x++) amount = Math.max(amount, Math.abs(values[x]));
-    amount = Math.round(amount);
+    amount = Math.min(32767, Math.round(amount));
     if (amount < 1) return undefined;
     const points = new Array<[number, number]>();
     for (let x = 0; x < 128; x++) {

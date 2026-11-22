@@ -44,6 +44,7 @@ test("grid values hit their grid points", () => {
 test("a pinned curve keeps its point at 64", () => {
     const ys = Uint16Array.from(ccCurve(75, steep, "decayVolEnv")!.points!, (p) => p[1]);
     // a tolerance wide enough to drop 64 when unpinned
+    assert.ok(!simplify(ys, 4000, false).some(([x]) => x === sourceX(64)));
     const points = simplify(ys, 4000, true);
     assert.ok(points.some(([x, y]) => x === sourceX(64) && y === ys[64]));
     assert.equal(yAt(points, sourceX(64)), 8192);
